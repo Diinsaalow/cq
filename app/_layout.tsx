@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { AudioProvider } from '../contexts/AudioContext';
+import MiniPlayer from '../components/MiniPlayer';
 
 function RootLayoutNav() {
   const { isAuthenticated } = useAuth();
@@ -26,6 +28,10 @@ function RootLayoutNav() {
 
   useFrameworkReady();
 
+  // Don't show mini player on the player screen or login screen
+  const showMiniPlayer =
+    isAuthenticated && segments[0] !== 'player' && segments[0] !== 'login';
+
   return (
     <Fragment>
       <Stack screenOptions={{ headerShown: false }}>
@@ -37,6 +43,7 @@ function RootLayoutNav() {
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="dark" />
+      {showMiniPlayer && <MiniPlayer />}
     </Fragment>
   );
 }
@@ -44,7 +51,9 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <AudioProvider>
+        <RootLayoutNav />
+      </AudioProvider>
     </AuthProvider>
   );
 }

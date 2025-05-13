@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,10 +16,9 @@ import {
   SkipForward,
   Volume2,
 } from 'lucide-react-native';
-import { Audio } from 'expo-av';
 import Colors from '../constants/Colors';
 import { MOCK_DATA } from '../data/mockData';
-import { AudioFile } from '../types';
+import { useAudio } from '../contexts/AudioContext';
 
 const { width } = Dimensions.get('window');
 
@@ -28,12 +27,20 @@ export default function PlayerScreen() {
   const { sectionId, audioIndex: audioIndexParam } = useLocalSearchParams();
   const audioIndex = Number(audioIndexParam) || 0;
 
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [currentAudioIndex, setCurrentAudioIndex] = useState(audioIndex);
+  // Get audio context
+  const {
+    isPlaying,
+    position,
+    duration,
+    loading,
+    currentAudioIndex,
+    currentSectionId,
+    playSound,
+    pauseSound,
+    resumeSound,
+    nextTrackRef,
+    previousTrackRef,
+  } = useAudio();
 
   // Find the section data
   const section = MOCK_DATA.flatMap((category) => category.sections).find(
@@ -41,97 +48,61 @@ export default function PlayerScreen() {
   );
 
   const audioFiles = section?.audioFiles || [];
-  const currentAudio = audioFiles[currentAudioIndex];
 
-  // Function to update playback status
-  const updatePlaybackStatus = async () => {
-    if (sound) {
-      const status = await sound.getStatusAsync();
-      if (status.isLoaded) {
-        setPosition(status.positionMillis / 1000);
+  // Syncing the player screen with the current context state
+  useEffect(() => {
+    // If this is a new section or the user manually navigated to a different track
+    if (
+      section &&
+      (sectionId !== currentSectionId || audioIndex !== currentAudioIndex)
+    ) {
+      const audioToPlay = audioFiles[audioIndex];
+      if (audioToPlay) {
+        playSound(audioToPlay, sectionId as string, audioIndex);
       }
     }
-  };
-
-  useEffect(() => {
-    return () => {
-      // Unload sound when component unmounts
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    // Load audio whenever currentAudioIndex changes
-    loadAudio();
-
-    // Update playback status every second
-    const interval = setInterval(updatePlaybackStatus, 1000);
-    return () => clearInterval(interval);
-  }, [currentAudioIndex]);
-
-  const loadAudio = async () => {
-    if (!currentAudio) return;
-
-    // Unload previous sound if it exists
-    if (sound) {
-      await sound.unloadAsync();
-    }
-
-    setLoading(true);
-    try {
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: currentAudio.url },
-        { shouldPlay: isPlaying },
-        onPlaybackStatusUpdate
-      );
-
-      setSound(newSound);
-
-      // Set up audio mode for playback
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: true,
-      });
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error loading audio:', error);
-      setLoading(false);
-    }
-  };
-
-  const onPlaybackStatusUpdate = (status: any) => {
-    if (status.isLoaded) {
-      setPosition(status.positionMillis / 1000);
-      setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
-      setIsPlaying(status.isPlaying);
-    }
-  };
+  }, [sectionId, audioIndex]);
 
   const handlePlayPause = async () => {
-    if (!sound) return;
-
     if (isPlaying) {
-      await sound.pauseAsync();
+      await pauseSound();
     } else {
-      await sound.playAsync();
+      await resumeSound();
     }
   };
 
-  const handlePrevious = () => {
+  const handlePrevious = useCallback(async () => {
     if (currentAudioIndex > 0) {
-      setCurrentAudioIndex(currentAudioIndex - 1);
+      const prevAudio = audioFiles[currentAudioIndex - 1];
+      if (prevAudio) {
+        await playSound(prevAudio, sectionId as string, currentAudioIndex - 1);
+      }
     }
-  };
+  }, [currentAudioIndex, audioFiles, sectionId, playSound]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(async () => {
     if (currentAudioIndex < audioFiles.length - 1) {
-      setCurrentAudioIndex(currentAudioIndex + 1);
+      const nextAudio = audioFiles[currentAudioIndex + 1];
+      if (nextAudio) {
+        await playSound(nextAudio, sectionId as string, currentAudioIndex + 1);
+      }
     }
-  };
+  }, [currentAudioIndex, audioFiles, sectionId, playSound]);
+
+  // Register next/previous handlers
+  useEffect(() => {
+    if (section) {
+      // Set the ref handlers for next/previous
+      nextTrackRef.current = handleNext;
+      previousTrackRef.current = handlePrevious;
+    }
+
+    return () => {
+      // Cleanup
+      nextTrackRef.current = async () => {};
+      previousTrackRef.current = async () => {};
+    };
+  }, [section, handleNext, handlePrevious, nextTrackRef, previousTrackRef]);
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number) => {
@@ -147,6 +118,9 @@ export default function PlayerScreen() {
       </View>
     );
   }
+
+  // Current playing audio (based on context state)
+  const currentAudio = audioFiles[currentAudioIndex];
 
   return (
     <View style={styles.container}>
