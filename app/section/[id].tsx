@@ -73,7 +73,15 @@ export default function SectionScreen() {
             entering={FadeInDown.delay(index * 100)}
             style={styles.audioItemContainer}
           >
-            <TouchableOpacity style={styles.audioItem}>
+            <TouchableOpacity
+              style={styles.audioItem}
+              onPress={() =>
+                router.push({
+                  pathname: '/player',
+                  params: { sectionId: id, audioIndex: index },
+                })
+              }
+            >
               <View style={styles.audioInfo}>
                 <Text style={styles.audioTitle}>Audio {index + 1}</Text>
                 <Text style={styles.audioDuration}>3:45</Text>

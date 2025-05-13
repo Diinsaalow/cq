@@ -33,6 +33,7 @@ function RootLayoutNav() {
         <Stack.Screen name="login" />
         <Stack.Screen name="section/[id]" />
         <Stack.Screen name="category/[id]" />
+        <Stack.Screen name="player" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="dark" />
