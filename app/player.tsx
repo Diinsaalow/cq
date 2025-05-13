@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,22 +12,133 @@ import {
   ArrowLeft,
   SkipBack,
   Play,
+  Pause,
   SkipForward,
   Volume2,
 } from 'lucide-react-native';
+import { Audio } from 'expo-av';
 import Colors from '../constants/Colors';
 import { MOCK_DATA } from '../data/mockData';
+import { AudioFile } from '../types';
 
 const { width } = Dimensions.get('window');
 
 export default function PlayerScreen() {
   const router = useRouter();
-  const { sectionId, audioIndex } = useLocalSearchParams();
+  const { sectionId, audioIndex: audioIndexParam } = useLocalSearchParams();
+  const audioIndex = Number(audioIndexParam) || 0;
+
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [currentAudioIndex, setCurrentAudioIndex] = useState(audioIndex);
 
   // Find the section data
   const section = MOCK_DATA.flatMap((category) => category.sections).find(
     (section) => section.id === sectionId
   );
+
+  const audioFiles = section?.audioFiles || [];
+  const currentAudio = audioFiles[currentAudioIndex];
+
+  // Function to update playback status
+  const updatePlaybackStatus = async () => {
+    if (sound) {
+      const status = await sound.getStatusAsync();
+      if (status.isLoaded) {
+        setPosition(status.positionMillis / 1000);
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      // Unload sound when component unmounts
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Load audio whenever currentAudioIndex changes
+    loadAudio();
+
+    // Update playback status every second
+    const interval = setInterval(updatePlaybackStatus, 1000);
+    return () => clearInterval(interval);
+  }, [currentAudioIndex]);
+
+  const loadAudio = async () => {
+    if (!currentAudio) return;
+
+    // Unload previous sound if it exists
+    if (sound) {
+      await sound.unloadAsync();
+    }
+
+    setLoading(true);
+    try {
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: currentAudio.url },
+        { shouldPlay: isPlaying },
+        onPlaybackStatusUpdate
+      );
+
+      setSound(newSound);
+
+      // Set up audio mode for playback
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+      });
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading audio:', error);
+      setLoading(false);
+    }
+  };
+
+  const onPlaybackStatusUpdate = (status: any) => {
+    if (status.isLoaded) {
+      setPosition(status.positionMillis / 1000);
+      setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
+      setIsPlaying(status.isPlaying);
+    }
+  };
+
+  const handlePlayPause = async () => {
+    if (!sound) return;
+
+    if (isPlaying) {
+      await sound.pauseAsync();
+    } else {
+      await sound.playAsync();
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentAudioIndex > 0) {
+      setCurrentAudioIndex(currentAudioIndex - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentAudioIndex < audioFiles.length - 1) {
+      setCurrentAudioIndex(currentAudioIndex + 1);
+    }
+  };
+
+  // Format time from seconds to MM:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   if (!section) {
     return (
@@ -36,6 +147,7 @@ export default function PlayerScreen() {
       </View>
     );
   }
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -59,31 +171,64 @@ export default function PlayerScreen() {
 
       {/* Track Info */}
       <View style={styles.trackInfo}>
-        <Text style={styles.trackTitle}>Audio {Number(audioIndex) + 1}</Text>
+        <Text style={styles.trackTitle}>
+          {currentAudio?.title || `Audio ${currentAudioIndex + 1}`}
+        </Text>
         <Text style={styles.trackSubtitle}>{section.title}</Text>
       </View>
 
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
         <View style={styles.progressBar}>
-          <View style={styles.progress} />
+          <View
+            style={[
+              styles.progress,
+              { width: `${duration > 0 ? (position / duration) * 100 : 0}%` },
+            ]}
+          />
         </View>
         <View style={styles.timeContainer}>
-          <Text style={styles.timeText}>0:00</Text>
-          <Text style={styles.timeText}>3:45</Text>
+          <Text style={styles.timeText}>{formatTime(position)}</Text>
+          <Text style={styles.timeText}>{formatTime(duration)}</Text>
         </View>
       </View>
 
       {/* Controls */}
       <View style={styles.controls}>
-        <TouchableOpacity style={styles.controlButton}>
-          <SkipBack size={32} color={Colors.textDark} />
+        <TouchableOpacity
+          style={styles.controlButton}
+          onPress={handlePrevious}
+          disabled={currentAudioIndex === 0}
+        >
+          <SkipBack
+            size={32}
+            color={currentAudioIndex === 0 ? Colors.textLight : Colors.textDark}
+          />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.playButton}>
-          <Play size={32} color={Colors.white} />
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={handlePlayPause}
+          disabled={loading}
+        >
+          {isPlaying ? (
+            <Pause size={32} color={Colors.white} />
+          ) : (
+            <Play size={32} color={Colors.white} />
+          )}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.controlButton}>
-          <SkipForward size={32} color={Colors.textDark} />
+        <TouchableOpacity
+          style={styles.controlButton}
+          onPress={handleNext}
+          disabled={currentAudioIndex === audioFiles.length - 1}
+        >
+          <SkipForward
+            size={32}
+            color={
+              currentAudioIndex === audioFiles.length - 1
+                ? Colors.textLight
+                : Colors.textDark
+            }
+          />
         </TouchableOpacity>
       </View>
 
@@ -157,9 +302,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   progressBar: {
-    height: 4,
+    height: 6,
     backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 2,
+    borderRadius: 10,
     marginBottom: 8,
   },
   progress: {
