@@ -9,12 +9,14 @@ interface CategorySectionProps {
   data: CategoryData;
   onSectionPress: (id: string) => void;
   onSeeMorePress: (categoryId: string) => void;
+  home?: boolean;
 }
 
 export default function CategorySection({
   data,
   onSectionPress,
   onSeeMorePress,
+  home = false,
 }: CategorySectionProps) {
   return (
     <View style={styles.container}>
@@ -22,18 +24,29 @@ export default function CategorySection({
         <Text style={styles.title}>{data.title}</Text>
         <View style={styles.decorativeLine} />
       </View>
-      
+
       <View style={styles.sectionsContainer}>
-        {data.sections.map((item, index) => (
-          <SectionCard 
-            key={item.id} 
-            item={item} 
-            onPress={onSectionPress}
-            index={index}
-          />
-        ))}
+        {home
+          ? data.sections
+              .slice(0, 3)
+              .map((item, index) => (
+                <SectionCard
+                  key={item.id}
+                  item={item}
+                  onPress={onSectionPress}
+                  index={index}
+                />
+              ))
+          : data.sections.map((item, index) => (
+              <SectionCard
+                key={item.id}
+                item={item}
+                onPress={onSectionPress}
+                index={index}
+              />
+            ))}
       </View>
-      
+
       <SeeMoreButton onPress={() => onSeeMorePress(data.id)} />
     </View>
   );

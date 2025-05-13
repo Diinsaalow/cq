@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Play, ArrowLeft } from 'lucide-react-native';
 import Colors from '../../constants/Colors';
@@ -11,8 +18,9 @@ export default function SectionScreen() {
   const router = useRouter();
 
   // Find the section data
-  const section = MOCK_DATA.flatMap(category => 
-    category.sections).find(section => section.id === id);
+  const section = MOCK_DATA.flatMap((category) => category.sections).find(
+    (section) => section.id === id
+  );
 
   if (!section) {
     return (
@@ -24,15 +32,15 @@ export default function SectionScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen 
+      <Stack.Screen
         options={{
           headerShown: false,
         }}
       />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -42,7 +50,7 @@ export default function SectionScreen() {
       </View>
 
       {/* Hero Section */}
-      <View style={styles.hero}>
+      {/* <View style={styles.hero}>
         <Image 
           source={{ uri: section.imageUrl }} 
           style={styles.heroImage}
@@ -55,13 +63,10 @@ export default function SectionScreen() {
             <Text style={styles.playAllText}>Play All</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </View> */}
 
       {/* Audio List */}
-      <ScrollView 
-        style={styles.audioList}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.audioList} showsVerticalScrollIndicator={false}>
         {Array.from({ length: section.count }).map((_, index) => (
           <Animated.View
             key={index}

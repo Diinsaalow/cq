@@ -14,7 +14,7 @@ export default function Header({ title }: HeaderProps) {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.content}>
-        <Music2 size={32} color={Colors.primary} style={styles.icon} />
+        {/* <Music2 size={32} color={Colors.primary} style={styles.icon} /> */}
         <Text style={styles.title}>{title}</Text>
       </View>
       <View style={styles.decorativeBar} />
@@ -53,11 +53,11 @@ const styles = StyleSheet.create({
   decorativeBar: {
     position: 'absolute',
     bottom: 0,
-    left: '15%',
-    right: '15%',
-    height: 4,
+    left: '10%',
+    right: '10%',
+    height: 3,
     backgroundColor: Colors.primary,
-    borderRadius: 2,
+    borderRadius: 1,
     opacity: 0.2,
   },
 });

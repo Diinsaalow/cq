@@ -5,27 +5,27 @@ import Header from '../components/Header';
 import CategorySection from '../components/CategorySection';
 import Colors from '../constants/Colors';
 import { MOCK_DATA } from '../data/mockData';
-
+import { router } from 'expo-router';
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   const handleSectionPress = useCallback((id: string) => {
-    Alert.alert('Section Selected', `You selected section ID: ${id}`);
+    router.push(`/section/${id}`);
   }, []);
 
   const handleSeeMorePress = useCallback((categoryId: string) => {
-    Alert.alert('See More', `You want to see more from category ID: ${categoryId}`);
+    router.push(`/category/${categoryId}`);
   }, []);
 
   return (
     <View style={styles.container}>
-      <Header title="NAME OF THE APP" />
-      
+      <Header title="Welcome to Diinsaalow" />
+
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 20 }
+          { paddingBottom: insets.bottom + 20 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -35,6 +35,7 @@ export default function HomeScreen() {
             data={category}
             onSectionPress={handleSectionPress}
             onSeeMorePress={handleSeeMorePress}
+            home={true}
           />
         ))}
       </ScrollView>
