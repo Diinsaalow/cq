@@ -1,7 +1,7 @@
 import { Fragment, useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useFrameworkReady } from '@/hooks/useFrameworkReady';
+import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { AudioProvider } from '../contexts/AudioContext';
@@ -15,28 +15,32 @@ function RootLayoutNav() {
   console.log('Segments', segments);
 
   useEffect(() => {
-    const isLoginRoute = segments[0] === 'login';
+    const isAuthRoute = segments[0] === 'login' || segments[0] === 'signup';
 
-    if (!isAuthenticated && !isLoginRoute) {
+    if (!isAuthenticated && !isAuthRoute) {
       // Redirect to login if not authenticated
       router.replace('/login');
-    } else if (isAuthenticated && isLoginRoute) {
-      // Redirect to home if authenticated and trying to access login page
+    } else if (isAuthenticated && isAuthRoute) {
+      // Redirect to home if authenticated and trying to access auth pages
       router.replace('/');
     }
   }, [isAuthenticated, segments]);
 
   useFrameworkReady();
 
-  // Don't show mini player on the player screen or login screen
+  // Don't show mini player on the player screen or auth screens
   const showMiniPlayer =
-    isAuthenticated && segments[0] !== 'player' && segments[0] !== 'login';
+    isAuthenticated &&
+    segments[0] !== 'player' &&
+    segments[0] !== 'login' &&
+    segments[0] !== 'signup';
 
   return (
     <Fragment>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="signup" />
         <Stack.Screen name="section/[id]" />
         <Stack.Screen name="category/[id]" />
         <Stack.Screen name="player" />

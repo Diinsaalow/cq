@@ -14,28 +14,45 @@ import Colors from '../constants/Colors';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff } from 'lucide-react-native';
 
-export default function LoginScreen() {
+export default function SignupScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
-  const { login, error: authError } = useAuth();
+  const { signup, error: authError } = useAuth();
 
-  const handleLogin = async () => {
+  const handleSignup = async () => {
+    // Clear previous errors
+    setError('');
+
+    // Basic validation
     if (!username.trim() || !password.trim()) {
       setError('Username and password are required');
       return;
     }
 
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+
     try {
       setIsLoading(true);
-      setError('');
-      await login(username, password);
+      console.log('Username: ', username);
+      console.log('Password: ', password);
+      await signup(username, password);
       router.replace('/');
     } catch (err: any) {
-      setError(err.message || 'Invalid username or password');
+      setError(err.message || 'Failed to create account');
     } finally {
       setIsLoading(false);
     }
@@ -45,14 +62,18 @@ export default function LoginScreen() {
     setShowPassword(!showPassword);
   };
 
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Sign up for Diinsaalow</Text>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
@@ -61,7 +82,7 @@ export default function LoginScreen() {
               style={styles.input}
               value={username}
               onChangeText={setUsername}
-              placeholder="Enter your username"
+              placeholder="Choose a username"
               autoCapitalize="none"
             />
           </View>
@@ -73,7 +94,7 @@ export default function LoginScreen() {
                 style={styles.passwordInput}
                 value={password}
                 onChangeText={setPassword}
-                placeholder="Enter your password"
+                placeholder="Create a password"
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity
@@ -89,27 +110,50 @@ export default function LoginScreen() {
             </View>
           </View>
 
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Confirm Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Confirm your password"
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={toggleConfirmPasswordVisibility}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff size={20} color={Colors.textLight} />
+                ) : (
+                  <Eye size={20} color={Colors.textLight} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
 
           <TouchableOpacity
-            style={styles.loginButton}
-            onPress={handleLogin}
+            style={styles.signupButton}
+            onPress={handleSignup}
             disabled={isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color={Colors.white} size="small" />
             ) : (
-              <Text style={styles.loginButtonText}>Sign In</Text>
+              <Text style={styles.signupButtonText}>Create Account</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.signupLink}
-            onPress={() => router.push('/signup')}
+            style={styles.loginLink}
+            onPress={() => router.replace('/login')}
           >
-            <Text style={styles.signupLinkText}>
-              Don't have an account? Sign up
+            <Text style={styles.loginLinkText}>
+              Already have an account? Sign in
             </Text>
           </TouchableOpacity>
         </View>
@@ -178,7 +222,7 @@ const styles = StyleSheet.create({
     color: '#ff3b30',
     fontSize: 14,
   },
-  loginButton: {
+  signupButton: {
     backgroundColor: Colors.primary,
     padding: 16,
     borderRadius: 12,
@@ -190,16 +234,16 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  loginButtonText: {
+  signupButtonText: {
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
-  signupLink: {
+  loginLink: {
     alignItems: 'center',
     marginTop: 16,
   },
-  signupLinkText: {
+  loginLinkText: {
     color: Colors.primary,
     fontSize: 14,
     fontWeight: '600',
