@@ -38,11 +38,12 @@ function RootLayoutNav() {
   return (
     <Fragment>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" />
         <Stack.Screen name="signup" />
         <Stack.Screen name="section/[id]" />
         <Stack.Screen name="category/[id]" />
+        <Stack.Screen name="upload" />
         <Stack.Screen name="player" />
         <Stack.Screen name="+not-found" />
       </Stack>
