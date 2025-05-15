@@ -16,10 +16,10 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [currentUser, setCurrentUser] =
     useState<Models.User<Models.Preferences> | null>(null);
-  const [username, setUsername] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>('Developer');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,9 +28,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkAuthStatus = async () => {
       try {
         setLoading(true);
-        const user = await account.get();
-        setCurrentUser(user);
+        // Skip Appwrite check during development
+        // const user = await account.get();
+        // setCurrentUser(user);
         setIsAuthenticated(true);
+        setUsername('Developer');
       } catch (err) {
         // User is not authenticated
         setCurrentUser(null);

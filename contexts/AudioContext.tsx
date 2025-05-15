@@ -168,6 +168,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
       await currentSound.unloadAsync();
       setCurrentSound(null);
       setCurrentAudio(null);
+      setCurrentSectionId(null);
+      setCurrentAudioIndex(0);
       setIsPlaying(false);
       setPosition(0);
       setDuration(0);
