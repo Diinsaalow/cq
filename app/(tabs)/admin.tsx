@@ -27,7 +27,7 @@ export default function AdminScreen() {
     {
       id: 'upload',
       title: 'Upload Audio',
-      icon: <Upload size={24} color={Colors.primary} />,
+      icon: <Upload size={24} color={Colors.white} />,
       description: 'Add new audio files to the app',
       onPress: () => router.push('/upload'),
       isPrimary: true,
