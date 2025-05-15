@@ -10,8 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import Colors from '../../constants/Colors';
+import getColors from '../../constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   User,
   LogOut,
@@ -27,7 +28,8 @@ import {
 export default function ProfileScreen() {
   const router = useRouter();
   const { username, logout } = useAuth();
-  const [darkMode, setDarkMode] = React.useState(false);
+  const { theme, toggleTheme } = useTheme();
+  const colors = getColors(theme);
   const [notifications, setNotifications] = React.useState(true);
 
   const handleLogout = async () => {
@@ -64,13 +66,13 @@ export default function ProfileScreen() {
         {
           id: 'profile',
           title: 'Profile Information',
-          icon: <User size={20} color={Colors.textDark} />,
+          icon: <User size={20} color={colors.textDark} />,
           onPress: () => console.log('Profile pressed'),
         },
         {
           id: 'security',
           title: 'Security',
-          icon: <Lock size={20} color={Colors.textDark} />,
+          icon: <Lock size={20} color={colors.textDark} />,
           onPress: () => console.log('Security pressed'),
         },
       ],
@@ -82,15 +84,15 @@ export default function ProfileScreen() {
         {
           id: 'appearance',
           title: 'Dark Mode',
-          icon: <Moon size={20} color={Colors.textDark} />,
+          icon: <Moon size={20} color={colors.textDark} />,
           toggle: true,
-          value: darkMode,
-          onToggle: (value: boolean) => setDarkMode(value),
+          value: theme === 'dark',
+          onToggle: () => toggleTheme(),
         },
         {
           id: 'notifications',
           title: 'Notifications',
-          icon: <Bell size={20} color={Colors.textDark} />,
+          icon: <Bell size={20} color={colors.textDark} />,
           toggle: true,
           value: notifications,
           onToggle: (value: boolean) => setNotifications(value),
@@ -98,13 +100,13 @@ export default function ProfileScreen() {
         {
           id: 'storage',
           title: 'Manage Storage',
-          icon: <HardDrive size={20} color={Colors.textDark} />,
+          icon: <HardDrive size={20} color={colors.textDark} />,
           onPress: () => console.log('Storage pressed'),
         },
         {
           id: 'audio',
           title: 'Audio Quality',
-          icon: <Headphones size={20} color={Colors.textDark} />,
+          icon: <Headphones size={20} color={colors.textDark} />,
           onPress: () => console.log('Audio pressed'),
         },
       ],
@@ -116,7 +118,7 @@ export default function ProfileScreen() {
         {
           id: 'about',
           title: 'About Diinsaalow',
-          icon: <Info size={20} color={Colors.textDark} />,
+          icon: <Info size={20} color={colors.textDark} />,
           onPress: () => console.log('About pressed'),
         },
       ],
@@ -124,36 +126,63 @@ export default function ProfileScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.white, borderBottomColor: colors.shadow },
+        ]}
+      >
+        <Text style={[styles.headerTitle, { color: colors.textDark }]}>
+          Profile
+        </Text>
       </View>
 
       <ScrollView style={styles.scrollContainer}>
         {/* User Info */}
-        <View style={styles.userSection}>
-          <View style={styles.avatar}>
-            <User size={40} color={Colors.primary} />
+        <View style={[styles.userSection, { backgroundColor: colors.white }]}>
+          <View style={[styles.avatar, { backgroundColor: colors.lightGray }]}>
+            <User size={40} color={colors.primary} />
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.username}>{username || 'Diinsaalow User'}</Text>
-            <Text style={styles.userEmail}>user@example.com</Text>
+            <Text style={[styles.username, { color: colors.textDark }]}>
+              {username || 'Diinsaalow User'}
+            </Text>
+            <Text style={[styles.userEmail, { color: colors.textLight }]}>
+              app@diinsaalow.com
+            </Text>
           </View>
         </View>
 
         {/* Menu Sections */}
         {menuItems.map((section) => (
           <View key={section.id} style={styles.menuSection}>
-            <Text style={styles.menuSectionTitle}>{section.title}</Text>
+            <Text
+              style={[styles.menuSectionTitle, { color: colors.textLight }]}
+            >
+              {section.title}
+            </Text>
             {section.items.map((item) => (
               <TouchableOpacity
                 key={item.id}
-                style={styles.menuItem}
+                style={[
+                  styles.menuItem,
+                  {
+                    backgroundColor: colors.white,
+                    borderBottomColor: colors.shadow,
+                  },
+                ]}
                 onPress={item.toggle ? undefined : item.onPress}
               >
                 <View style={styles.menuItemLeft}>
                   {item.icon}
-                  <Text style={styles.menuItemTitle}>{item.title}</Text>
+                  <Text
+                    style={[styles.menuItemTitle, { color: colors.textDark }]}
+                  >
+                    {item.title}
+                  </Text>
                 </View>
                 {item.toggle ? (
                   <Switch
@@ -161,12 +190,12 @@ export default function ProfileScreen() {
                     onValueChange={item.onToggle}
                     trackColor={{
                       false: 'rgba(0,0,0,0.1)',
-                      true: Colors.primary + '80',
+                      true: colors.primary + '80',
                     }}
-                    thumbColor={item.value ? Colors.primary : '#f4f3f4'}
+                    thumbColor={item.value ? colors.primary : '#f4f3f4'}
                   />
                 ) : (
-                  <ChevronRight size={20} color={Colors.textLight} />
+                  <ChevronRight size={20} color={colors.textLight} />
                 )}
               </TouchableOpacity>
             ))}
@@ -174,12 +203,22 @@ export default function ProfileScreen() {
         ))}
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <LogOut size={20} color={Colors.primary} />
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity
+          style={[
+            styles.logoutButton,
+            { backgroundColor: colors.white, borderColor: colors.primary },
+          ]}
+          onPress={handleLogout}
+        >
+          <LogOut size={20} color={colors.primary} />
+          <Text style={[styles.logoutText, { color: colors.primary }]}>
+            Logout
+          </Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>Diinsaalow v1.0.0</Text>
+        <Text style={[styles.versionText, { color: colors.textLight }]}>
+          Diinsaalow v1.0.0
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -188,20 +227,16 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.textDark,
   },
   scrollContainer: {
     flex: 1,
@@ -210,14 +245,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: Colors.white,
-    marginBottom: 20,
   },
   avatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -228,12 +260,10 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.textDark,
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: Colors.textLight,
   },
   menuSection: {
     marginBottom: 20,
@@ -241,7 +271,6 @@ const styles = StyleSheet.create({
   menuSectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textLight,
     marginLeft: 20,
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -250,11 +279,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.white,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -262,30 +289,25 @@ const styles = StyleSheet.create({
   },
   menuItemTitle: {
     fontSize: 16,
-    color: Colors.textDark,
     marginLeft: 12,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.white,
     paddingVertical: 16,
     marginHorizontal: 20,
     marginBottom: 20,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.primary,
   },
   logoutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.primary,
     marginLeft: 8,
   },
   versionText: {
     fontSize: 12,
-    color: Colors.textLight,
     textAlign: 'center',
     marginBottom: 40,
   },

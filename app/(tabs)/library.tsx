@@ -10,7 +10,8 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import Colors from '../../constants/Colors';
+import getColors from '../../constants/Colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Search, Play, Pause } from 'lucide-react-native';
 import { useAudio } from '../../contexts/AudioContext';
 import { MOCK_DATA } from '../../data/mockData';
@@ -20,6 +21,8 @@ export default function LibraryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const { currentAudio, isPlaying, playSound, pauseSound, resumeSound } =
     useAudio();
+  const { theme } = useTheme();
+  const colors = getColors(theme);
 
   // Flatten all sections from all categories
   const allSections = MOCK_DATA.flatMap((category) => category.sections);
@@ -55,24 +58,33 @@ export default function LibraryScreen() {
 
     return (
       <TouchableOpacity
-        style={styles.sectionCard}
+        style={[
+          styles.sectionCard,
+          { backgroundColor: colors.white, shadowColor: colors.shadow },
+        ]}
         onPress={() => handleSectionPress(item.id)}
       >
         <Image source={{ uri: item.imageUrl }} style={styles.sectionImage} />
         <View style={styles.sectionInfo}>
-          <Text style={styles.sectionTitle}>{item.title}</Text>
-          <Text style={styles.sectionSubtitle}>{item.subtitle}</Text>
-          <Text style={styles.sectionCount}>{item.count} lessons</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textDark }]}>
+            {item.title}
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.textLight }]}>
+            {item.subtitle}
+          </Text>
+          <Text style={[styles.sectionCount, { color: colors.primary }]}>
+            {item.count} lessons
+          </Text>
         </View>
         {firstAudio && (
           <TouchableOpacity
-            style={styles.playButton}
+            style={[styles.playButton, { backgroundColor: colors.primary }]}
             onPress={() => handlePlayAudio(firstAudio, item.id, 0)}
           >
             {isCurrentlyPlaying ? (
-              <Pause size={16} color={Colors.white} />
+              <Pause size={16} color={colors.white} />
             ) : (
-              <Play size={16} color={Colors.white} />
+              <Play size={16} color={colors.white} />
             )}
           </TouchableOpacity>
         )}
@@ -81,16 +93,31 @@ export default function LibraryScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Library</Text>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.white, borderBottomColor: colors.shadow },
+        ]}
+      >
+        <Text style={[styles.headerTitle, { color: colors.textDark }]}>
+          Your Library
+        </Text>
       </View>
 
-      <View style={styles.searchContainer}>
-        <Search size={20} color={Colors.textLight} style={styles.searchIcon} />
+      <View
+        style={[
+          styles.searchContainer,
+          { backgroundColor: colors.white, borderColor: colors.shadow },
+        ]}
+      >
+        <Search size={20} color={colors.textLight} style={styles.searchIcon} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.textDark }]}
           placeholder="Search sections..."
+          placeholderTextColor={colors.textLight}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -110,32 +137,25 @@ export default function LibraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.textDark,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
     margin: 16,
     marginTop: 20,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
   },
   searchIcon: {
     marginRight: 8,
@@ -144,7 +164,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     fontSize: 16,
-    color: Colors.textDark,
   },
   listContent: {
     padding: 16,
@@ -153,7 +172,6 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     flexDirection: 'row',
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
@@ -176,23 +194,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.textDark,
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: Colors.textLight,
     marginBottom: 4,
   },
-  sectionCount: {
-    fontSize: 12,
-    color: Colors.primary,
-  },
+  sectionCount: {},
   playButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',

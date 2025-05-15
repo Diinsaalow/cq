@@ -1,6 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Platform } from 'react-native';
-import Colors from '../constants/Colors';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Platform,
+} from 'react-native';
+import getColors from '../constants/Colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { SectionItem } from '../types';
 import { Play } from 'lucide-react-native';
 import Animated, { FadeInRight } from 'react-native-reanimated';
@@ -11,31 +19,63 @@ interface SectionCardProps {
   index: number;
 }
 
-export default function SectionCard({ item, onPress, index }: SectionCardProps) {
+export default function SectionCard({
+  item,
+  onPress,
+  index,
+}: SectionCardProps) {
+  const { theme } = useTheme();
+  const colors = getColors(theme);
+
   return (
     <Animated.View
       entering={FadeInRight.delay(index * 100)}
       style={styles.animatedContainer}
     >
       <TouchableOpacity
-        style={styles.container}
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.white,
+            shadowColor: colors.shadow,
+            borderColor: colors.shadow,
+          },
+        ]}
         onPress={() => onPress(item.id)}
         activeOpacity={0.95}
       >
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { shadowColor: colors.shadow }]}>
           <Image source={{ uri: item.imageUrl }} style={styles.image} />
         </View>
-        
         <View style={styles.contentContainer}>
           <View style={styles.textContainer}>
-            <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.subtitle} numberOfLines={1}>{item.subtitle}</Text>
+            <Text
+              style={[styles.title, { color: colors.textDark }]}
+              numberOfLines={1}
+            >
+              {item.title}
+            </Text>
+            <Text
+              style={[styles.subtitle, { color: colors.textLight }]}
+              numberOfLines={1}
+            >
+              {item.subtitle}
+            </Text>
           </View>
-          
           <View style={styles.rightContainer}>
-            <Text style={styles.count}>{item.count}</Text>
-            <TouchableOpacity style={styles.playButton}>
-              <Play size={16} color={Colors.white} style={styles.playIcon} />
+            <Text style={[styles.count, { color: colors.primary }]}>
+              {item.count}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.playButton,
+                {
+                  backgroundColor: colors.primary,
+                  shadowColor: colors.primary,
+                },
+              ]}
+            >
+              <Play size={16} color={colors.white} style={styles.playIcon} />
             </TouchableOpacity>
           </View>
         </View>
@@ -49,18 +89,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   container: {
-    backgroundColor: Colors.white,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
     ...Platform.select({
       web: {
         transition: 'all 0.3s ease-in-out',
@@ -73,7 +110,6 @@ const styles = StyleSheet.create({
     }),
   },
   imageContainer: {
-    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -99,12 +135,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: '700',
-    color: Colors.textDark,
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.textLight,
     opacity: 0.8,
   },
   rightContainer: {
@@ -113,14 +147,11 @@ const styles = StyleSheet.create({
   count: {
     fontSize: 24,
     fontWeight: '800',
-    color: Colors.primary,
     marginBottom: 6,
   },
   playButton: {
-    backgroundColor: Colors.primary,
     borderRadius: 10,
     padding: 8,
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

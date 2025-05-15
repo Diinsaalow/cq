@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import Colors from '../constants/Colors';
+import getColors from '../constants/Colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Music2 } from 'lucide-react-native';
 
@@ -10,26 +11,37 @@ interface HeaderProps {
 
 export default function Header({ title }: HeaderProps) {
   const insets = useSafeAreaInsets();
-  
+  const { theme } = useTheme();
+  const colors = getColors(theme);
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.white,
+          shadowColor: colors.shadow,
+          paddingTop: insets.top,
+        },
+      ]}
+    >
       <View style={styles.content}>
-        {/* <Music2 size={32} color={Colors.primary} style={styles.icon} /> */}
-        <Text style={styles.title}>{title}</Text>
+        {/* <Music2 size={32} color={colors.primary} style={styles.icon} /> */}
+        <Text style={[styles.title, { color: colors.textDark }]}>{title}</Text>
       </View>
-      <View style={styles.decorativeBar} />
+      <View
+        style={[styles.decorativeBar, { backgroundColor: colors.primary }]}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.white,
     paddingBottom: 15,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -47,7 +59,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.textDark,
     textAlign: 'center',
   },
   decorativeBar: {
@@ -56,7 +67,6 @@ const styles = StyleSheet.create({
     left: '10%',
     right: '10%',
     height: 3,
-    backgroundColor: Colors.primary,
     borderRadius: 1,
     opacity: 0.2,
   },

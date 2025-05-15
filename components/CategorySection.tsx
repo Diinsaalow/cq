@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import SectionCard from './SectionCard';
 import SeeMoreButton from './SeeMoreButton';
-import Colors from '../constants/Colors';
+import getColors from '../constants/Colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { CategoryData } from '../types';
 
 interface CategorySectionProps {
@@ -18,11 +19,18 @@ export default function CategorySection({
   onSeeMorePress,
   home = false,
 }: CategorySectionProps) {
+  const { theme } = useTheme();
+  const colors = getColors(theme);
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>{data.title}</Text>
-        <View style={styles.decorativeLine} />
+        <Text style={[styles.title, { color: colors.textDark }]}>
+          {data.title}
+        </Text>
+        <View
+          style={[styles.decorativeLine, { backgroundColor: colors.primary }]}
+        />
       </View>
 
       <View style={styles.sectionsContainer}>
@@ -54,27 +62,27 @@ export default function CategorySection({
 
 const styles = StyleSheet.create({
   container: {
+    borderRadius: 16,
     marginBottom: 32,
   },
   headerContainer: {
-    marginBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    color: Colors.textDark,
     marginRight: 12,
   },
   decorativeLine: {
     flex: 1,
-    height: 2,
-    backgroundColor: Colors.primary,
-    opacity: 0.2,
-    borderRadius: 1,
+    height: 3,
+    borderRadius: 2,
+    opacity: 0.15,
   },
   sectionsContainer: {
-    marginBottom: 16,
+    gap: 16,
+    marginBottom: 12,
   },
 });

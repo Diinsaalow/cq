@@ -1,11 +1,14 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import Colors from '../../constants/Colors';
+import getColors from '../../constants/Colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Home, Music, Upload, User } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function TabsLayout() {
   const { username, role } = useAuth();
+  const { theme } = useTheme();
+  const colors = getColors(theme);
 
   // Check if user is admin based on their role
   const isAdmin = role === 'admin';
@@ -13,12 +16,12 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textLight,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textLight,
         tabBarStyle: {
-          backgroundColor: Colors.white,
+          backgroundColor: colors.white,
           borderTopWidth: 1,
-          borderTopColor: 'rgba(0,0,0,0.05)',
+          borderTopColor: colors.shadow,
           height: 60,
           paddingBottom: 10,
         },

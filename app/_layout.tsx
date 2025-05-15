@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { AudioProvider } from '../contexts/AudioContext';
 import MiniPlayer from '../components/MiniPlayer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ThemeProvider } from '../contexts/ThemeContext';
 
 function RootLayoutNav() {
   const { isAuthenticated } = useAuth();
@@ -56,12 +57,14 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <AudioProvider>
-          <RootLayoutNav />
-        </AudioProvider>
-      </AuthProvider>
-    </GestureHandlerRootView>
+    <ThemeProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <AuthProvider>
+          <AudioProvider>
+            <RootLayoutNav />
+          </AudioProvider>
+        </AuthProvider>
+      </GestureHandlerRootView>
+    </ThemeProvider>
   );
 }

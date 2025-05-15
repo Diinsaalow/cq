@@ -8,7 +8,8 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import Colors from '../../constants/Colors';
+import getColors from '../../constants/Colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   Upload,
   List,
@@ -22,12 +23,14 @@ import {
 
 export default function AdminScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
+  const colors = getColors(theme);
 
   const adminOptions = [
     {
       id: 'upload',
       title: 'Upload Audio',
-      icon: <Upload size={24} color={Colors.white} />,
+      icon: <Upload size={24} color={colors.white} />,
       description: 'Add new audio files to the app',
       onPress: () => router.push('/upload'),
       isPrimary: true,
@@ -35,37 +38,46 @@ export default function AdminScreen() {
     {
       id: 'manage',
       title: 'Manage Content',
-      icon: <List size={24} color={Colors.textDark} />,
+      icon: <List size={24} color={colors.textDark} />,
       description: 'Edit or delete existing content',
       onPress: () => console.log('Manage content'),
     },
     {
       id: 'users',
       title: 'Manage Users',
-      icon: <Users size={24} color={Colors.textDark} />,
+      icon: <Users size={24} color={colors.textDark} />,
       description: 'View and manage user accounts',
       onPress: () => console.log('Manage users'),
     },
     {
       id: 'stats',
       title: 'Analytics',
-      icon: <BarChart size={24} color={Colors.textDark} />,
+      icon: <BarChart size={24} color={colors.textDark} />,
       description: 'View app usage statistics',
       onPress: () => console.log('View analytics'),
     },
     {
       id: 'settings',
       title: 'App Settings',
-      icon: <Settings size={24} color={Colors.textDark} />,
+      icon: <Settings size={24} color={colors.textDark} />,
       description: 'Configure app behavior',
       onPress: () => console.log('Open settings'),
     },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Admin Dashboard</Text>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.white, borderBottomColor: colors.shadow },
+        ]}
+      >
+        <Text style={[styles.headerTitle, { color: colors.textDark }]}>
+          Admin Dashboard
+        </Text>
       </View>
 
       <ScrollView
@@ -73,22 +85,36 @@ export default function AdminScreen() {
         contentContainerStyle={styles.contentContainer}
       >
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>2</Text>
-            <Text style={styles.statLabel}>Categories</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.white }]}>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>
+              2
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textLight }]}>
+              Categories
+            </Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>8</Text>
-            <Text style={styles.statLabel}>Sections</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.white }]}>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>
+              8
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textLight }]}>
+              Sections
+            </Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>24</Text>
-            <Text style={styles.statLabel}>Audio Files</Text>
+          <View style={[styles.statCard, { backgroundColor: colors.white }]}>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>
+              24
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textLight }]}>
+              Audio Files
+            </Text>
           </View>
         </View>
 
         <View style={styles.actionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textDark }]}>
+            Quick Actions
+          </Text>
           <View style={styles.optionsGrid}>
             {adminOptions.map((option) => (
               <TouchableOpacity
@@ -96,6 +122,8 @@ export default function AdminScreen() {
                 style={[
                   styles.optionCard,
                   option.isPrimary && styles.primaryOptionCard,
+                  option.isPrimary && { backgroundColor: colors.primary },
+                  !option.isPrimary && { backgroundColor: colors.white },
                 ]}
                 onPress={option.onPress}
               >
@@ -103,6 +131,12 @@ export default function AdminScreen() {
                   style={[
                     styles.iconContainer,
                     option.isPrimary && styles.primaryIconContainer,
+                    option.isPrimary && {
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                    },
+                    !option.isPrimary && {
+                      backgroundColor: 'rgba(0,0,0,0.05)',
+                    },
                   ]}
                 >
                   {option.icon}
@@ -111,6 +145,8 @@ export default function AdminScreen() {
                   style={[
                     styles.optionTitle,
                     option.isPrimary && styles.primaryOptionTitle,
+                    option.isPrimary && { color: colors.white },
+                    !option.isPrimary && { color: colors.textDark },
                   ]}
                 >
                   {option.title}
@@ -119,6 +155,8 @@ export default function AdminScreen() {
                   style={[
                     styles.optionDescription,
                     option.isPrimary && styles.primaryOptionDescription,
+                    option.isPrimary && { color: 'rgba(255,255,255,0.8)' },
+                    !option.isPrimary && { color: colors.textLight },
                   ]}
                 >
                   {option.description}
@@ -129,33 +167,76 @@ export default function AdminScreen() {
         </View>
 
         <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.activityList}>
+          <Text style={[styles.sectionTitle, { color: colors.textDark }]}>
+            Recent Activity
+          </Text>
+          <View
+            style={[styles.activityList, { backgroundColor: colors.white }]}
+          >
             <View style={styles.activityItem}>
-              <View style={styles.activityIconContainer}>
-                <FileAudio size={20} color={Colors.white} />
+              <View
+                style={[
+                  styles.activityIconContainer,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <FileAudio size={20} color={colors.white} />
               </View>
               <View style={styles.activityDetails}>
-                <Text style={styles.activityTitle}>New audio uploaded</Text>
-                <Text style={styles.activityTime}>Today, 2:30 PM</Text>
+                <Text
+                  style={[styles.activityTitle, { color: colors.textDark }]}
+                >
+                  New audio uploaded
+                </Text>
+                <Text
+                  style={[styles.activityTime, { color: colors.textLight }]}
+                >
+                  Today, 2:30 PM
+                </Text>
               </View>
             </View>
             <View style={styles.activityItem}>
-              <View style={styles.activityIconContainer}>
-                <PlusCircle size={20} color={Colors.white} />
+              <View
+                style={[
+                  styles.activityIconContainer,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <PlusCircle size={20} color={colors.white} />
               </View>
               <View style={styles.activityDetails}>
-                <Text style={styles.activityTitle}>New section created</Text>
-                <Text style={styles.activityTime}>Yesterday, 10:15 AM</Text>
+                <Text
+                  style={[styles.activityTitle, { color: colors.textDark }]}
+                >
+                  New section created
+                </Text>
+                <Text
+                  style={[styles.activityTime, { color: colors.textLight }]}
+                >
+                  Yesterday, 10:15 AM
+                </Text>
               </View>
             </View>
             <View style={styles.activityItem}>
-              <View style={styles.activityIconContainer}>
-                <FileAudio size={20} color={Colors.white} />
+              <View
+                style={[
+                  styles.activityIconContainer,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <FileAudio size={20} color={colors.white} />
               </View>
               <View style={styles.activityDetails}>
-                <Text style={styles.activityTitle}>New audio uploaded</Text>
-                <Text style={styles.activityTime}>Yesterday, 9:45 AM</Text>
+                <Text
+                  style={[styles.activityTitle, { color: colors.textDark }]}
+                >
+                  New audio uploaded
+                </Text>
+                <Text
+                  style={[styles.activityTime, { color: colors.textLight }]}
+                >
+                  Yesterday, 9:45 AM
+                </Text>
               </View>
             </View>
           </View>
@@ -168,20 +249,16 @@ export default function AdminScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.textDark,
   },
   scrollContainer: {
     flex: 1,
@@ -197,11 +274,9 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 4,
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -211,12 +286,9 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.primary,
-    marginBottom: 4,
   },
   statLabel: {
     fontSize: 14,
-    color: Colors.textLight,
   },
   actionsSection: {
     marginBottom: 24,
@@ -224,7 +296,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.textDark,
     marginBottom: 16,
   },
   optionsGrid: {
@@ -234,7 +305,6 @@ const styles = StyleSheet.create({
   },
   optionCard: {
     width: '48%',
-    backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -245,14 +315,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   primaryOptionCard: {
-    backgroundColor: Colors.primary,
+    backgroundColor: 'rgba(0,0,0,0.05)',
     width: '100%',
   },
   iconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -263,15 +332,12 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.textDark,
-    marginBottom: 4,
   },
   primaryOptionTitle: {
-    color: Colors.white,
+    color: 'rgba(255,255,255,0.8)',
   },
   optionDescription: {
     fontSize: 14,
-    color: Colors.textLight,
   },
   primaryOptionDescription: {
     color: 'rgba(255,255,255,0.8)',
@@ -280,7 +346,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   activityList: {
-    backgroundColor: Colors.white,
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -300,7 +365,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -311,11 +375,8 @@ const styles = StyleSheet.create({
   activityTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: Colors.textDark,
-    marginBottom: 4,
   },
   activityTime: {
     fontSize: 12,
-    color: Colors.textLight,
   },
 });
