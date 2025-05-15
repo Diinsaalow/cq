@@ -23,15 +23,35 @@ export default function UploadScreen() {
   const { username } = useAuth();
   const [title, setTitle] = useState('');
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
-  // Mock data for sections dropdown
-  const sections = [
-    { id: '1', title: 'Section 1' },
-    { id: '2', title: 'Section 2' },
-    { id: '3', title: 'Section 3' },
+  // Mock categories and sections data
+  const categories = [
+    {
+      id: 'cat1',
+      title: 'Category 1',
+      sections: [
+        { id: 'sec1', title: 'Section 1' },
+        { id: 'sec2', title: 'Section 2' },
+      ],
+    },
+    {
+      id: 'cat2',
+      title: 'Category 2',
+      sections: [
+        { id: 'sec3', title: 'Section 3' },
+        { id: 'sec4', title: 'Section 4' },
+      ],
+    },
+    {
+      id: 'cat3',
+      title: 'Category 3',
+      sections: [{ id: 'sec5', title: 'Section 5' }],
+    },
   ];
 
   const handlePickAudio = async () => {
@@ -46,8 +66,14 @@ export default function UploadScreen() {
       const fileInfo = await FileSystem.getInfoAsync(result.assets[0].uri);
       console.log('File info:', fileInfo);
 
+      // Type guard for fileInfo.size
+      const fileSize =
+        'size' in fileInfo && typeof fileInfo.size === 'number'
+          ? fileInfo.size
+          : undefined;
+
       // Check file size (limit to 50MB for example)
-      if (fileInfo.size && fileInfo.size > 50 * 1024 * 1024) {
+      if (fileSize && fileSize > 50 * 1024 * 1024) {
         Alert.alert('File too large', 'Please select a file smaller than 50MB');
         return;
       }
@@ -56,7 +82,7 @@ export default function UploadScreen() {
         uri: result.assets[0].uri,
         name: result.assets[0].name,
         type: result.assets[0].mimeType,
-        size: fileInfo.size,
+        size: fileSize,
       });
     } catch (error) {
       console.error('Error picking audio file:', error);
@@ -162,33 +188,42 @@ export default function UploadScreen() {
           />
         </View>
 
-        {/* Section Dropdown */}
+        {/* Category & Section Selection */}
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Section</Text>
-          <View style={styles.pickerContainer}>
-            {sections.map((section) => (
-              <TouchableOpacity
-                key={section.id}
-                style={[
-                  styles.sectionOption,
-                  selectedSection === section.id &&
-                    styles.selectedSectionOption,
-                ]}
-                onPress={() => setSelectedSection(section.id)}
-              >
-                <Text
-                  style={[
-                    styles.sectionOptionText,
-                    selectedSection === section.id &&
-                      styles.selectedSectionOptionText,
-                  ]}
-                >
-                  {section.title}
-                </Text>
-                {selectedSection === section.id && (
-                  <Check size={16} color={Colors.white} />
+          <Text style={styles.label}>Select Section</Text>
+          <View style={styles.sectionCard}>
+            {categories.map((category, catIdx) => (
+              <View key={category.id}>
+                <Text style={styles.sectionCategory}>{category.title}</Text>
+                {category.sections.map((section) => (
+                  <TouchableOpacity
+                    key={section.id}
+                    style={[
+                      styles.sectionRadioRow,
+                      selectedSection === section.id &&
+                        styles.sectionRadioRowSelected,
+                    ]}
+                    onPress={() => setSelectedSection(section.id)}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.radioOuter,
+                        selectedSection === section.id &&
+                          styles.radioOuterSelected,
+                      ]}
+                    >
+                      {selectedSection === section.id && (
+                        <View style={styles.radioInner} />
+                      )}
+                    </View>
+                    <Text style={styles.sectionRadioText}>{section.title}</Text>
+                  </TouchableOpacity>
+                ))}
+                {catIdx !== categories.length - 1 && (
+                  <View style={styles.sectionDivider} />
                 )}
-              </TouchableOpacity>
+              </View>
             ))}
           </View>
         </View>
@@ -456,5 +491,64 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.white,
     marginLeft: 8,
+  },
+  sectionCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 20,
+  },
+  sectionCategory: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.primary,
+    marginTop: 10,
+    marginBottom: 4,
+    marginLeft: 4,
+  },
+  sectionRadioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.white,
+  },
+  sectionRadioRowSelected: {
+    backgroundColor: '#f0fdf4',
+  },
+  sectionRadioText: {
+    fontSize: 15,
+    color: Colors.textDark,
+    marginLeft: 12,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    marginVertical: 8,
+    borderRadius: 1,
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterSelected: {
+    borderColor: Colors.primary,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.primary,
   },
 });
