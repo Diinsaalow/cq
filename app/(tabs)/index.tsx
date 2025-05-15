@@ -21,7 +21,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Header title="NAME OF THE APP" />
+      <Header title="Diinsaalow" />
       
       <ScrollView
         style={styles.scrollContainer}
