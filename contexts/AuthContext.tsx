@@ -2,10 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { account, database, config } from '../lib/appwrite';
 import { Models, ID, Query } from 'react-native-appwrite';
 
+type UserRole = 'admin' | 'user';
+
 type AuthContextType = {
   isAuthenticated: boolean;
   currentUser: Models.User<Models.Preferences> | null;
   username: string | null;
+  role: UserRole;
   loading: boolean;
   error: string | null;
   login: (username: string, password: string) => Promise<void>;
@@ -20,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] =
     useState<Models.User<Models.Preferences> | null>(null);
   const [username, setUsername] = useState<string | null>('Developer');
+  const [role, setRole] = useState<UserRole>('admin'); // Default to admin during development
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // setCurrentUser(user);
         setIsAuthenticated(true);
         setUsername('Developer');
+        setRole('admin'); // Default to admin during development
       } catch (err) {
         // User is not authenticated
         setCurrentUser(null);
@@ -69,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Set authenticated state
       setUsername(username);
+      setRole(userData.role || 'user'); // Use role from database or default to 'user'
       setIsAuthenticated(true);
     } catch (err: any) {
       setError(err.message || 'Failed to login');
@@ -102,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         {
           username,
           password,
+          role: 'user', // Default role for new users
         }
       );
 
@@ -109,6 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Set authenticated state
       setUsername(username);
+      setRole('user');
       setIsAuthenticated(true);
     } catch (err: any) {
       console.error('Signup error:', err);
@@ -123,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setUsername(null);
+      setRole('user');
       setIsAuthenticated(false);
     } catch (err: any) {
       setError(err.message || 'Failed to logout');
@@ -137,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         currentUser,
         username,
+        role,
         loading,
         error,
         login,

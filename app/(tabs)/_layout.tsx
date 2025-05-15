@@ -5,10 +5,10 @@ import { Home, Music, Upload, User } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function TabsLayout() {
-  const { username } = useAuth();
+  const { username, role } = useAuth();
 
-  // Check if user is admin (you can implement proper admin check later)
-  const isAdmin = true; // For demo purposes, showing admin tab to everyone
+  // Check if user is admin based on their role
+  const isAdmin = role === 'admin';
 
   return (
     <Tabs
@@ -43,15 +43,17 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <Music size={24} color={color} />,
         }}
       />
-      {isAdmin && (
-        <Tabs.Screen
-          name="admin"
-          options={{
-            title: 'Admin',
-            tabBarIcon: ({ color }) => <Upload size={24} color={color} />,
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="admin"
+        options={
+          isAdmin
+            ? {
+                title: 'Admin',
+                tabBarIcon: ({ color }) => <Upload size={24} color={color} />,
+              }
+            : { href: null }
+        }
+      />
       <Tabs.Screen
         name="profile"
         options={{
