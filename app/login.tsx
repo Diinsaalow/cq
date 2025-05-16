@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import Colors from '../constants/Colors';
+import getColors from '../constants/Colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff } from 'lucide-react-native';
 
@@ -22,6 +23,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { login, error: authError } = useAuth();
+  const { theme } = useTheme();
+  const colors = getColors(theme);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -48,32 +51,57 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+        <Text style={[styles.title, { color: colors.textDark }]}>
+          Welcome Back
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.textLight }]}>
+          Sign in to continue
+        </Text>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Username</Text>
+            <Text style={[styles.label, { color: colors.textDark }]}>
+              Username
+            </Text>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.white,
+                  borderColor: colors.shadow,
+                  color: colors.textDark,
+                },
+              ]}
               value={username}
               onChangeText={setUsername}
               placeholder="Enter your username"
+              placeholderTextColor={colors.textLight}
               autoCapitalize="none"
             />
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
+            <Text style={[styles.label, { color: colors.textDark }]}>
+              Password
+            </Text>
+            <View
+              style={[
+                styles.passwordContainer,
+                {
+                  backgroundColor: colors.white,
+                  borderColor: colors.shadow,
+                },
+              ]}
+            >
               <TextInput
-                style={styles.passwordInput}
+                style={[styles.passwordInput, { color: colors.textDark }]}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Enter your password"
+                placeholderTextColor={colors.textLight}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity
@@ -81,9 +109,9 @@ export default function LoginScreen() {
                 onPress={togglePasswordVisibility}
               >
                 {showPassword ? (
-                  <EyeOff size={20} color={Colors.textLight} />
+                  <EyeOff size={20} color={colors.textLight} />
                 ) : (
-                  <Eye size={20} color={Colors.textLight} />
+                  <Eye size={20} color={colors.textLight} />
                 )}
               </TouchableOpacity>
             </View>
@@ -93,14 +121,22 @@ export default function LoginScreen() {
           {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
 
           <TouchableOpacity
-            style={styles.loginButton}
+            style={[
+              styles.loginButton,
+              {
+                backgroundColor: colors.primary,
+                shadowColor: colors.primary,
+              },
+            ]}
             onPress={handleLogin}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color={Colors.white} size="small" />
+              <ActivityIndicator color={colors.white} size="small" />
             ) : (
-              <Text style={styles.loginButtonText}>Sign In</Text>
+              <Text style={[styles.loginButtonText, { color: colors.white }]}>
+                Sign In
+              </Text>
             )}
           </TouchableOpacity>
 
@@ -108,7 +144,7 @@ export default function LoginScreen() {
             style={styles.signupLink}
             onPress={() => router.push('/signup')}
           >
-            <Text style={styles.signupLinkText}>
+            <Text style={[styles.signupLinkText, { color: colors.primary }]}>
               Don't have an account? Sign up
             </Text>
           </TouchableOpacity>
@@ -121,7 +157,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   content: {
     flex: 1,
@@ -131,12 +166,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: Colors.textDark,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: Colors.textLight,
     marginBottom: 32,
   },
   form: {
@@ -148,23 +181,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textDark,
   },
   input: {
-    backgroundColor: Colors.white,
     padding: 16,
     borderRadius: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
   },
   passwordInput: {
     flex: 1,
@@ -179,19 +207,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   loginButton: {
-    backgroundColor: Colors.primary,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   loginButtonText: {
-    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -200,7 +225,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   signupLinkText: {
-    color: Colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
