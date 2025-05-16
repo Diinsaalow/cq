@@ -10,7 +10,8 @@ import {
 import { useRouter, useSegments } from 'expo-router';
 import { Play, Pause } from 'lucide-react-native';
 import { useAudio } from '../contexts/AudioContext';
-import Colors from '../constants/Colors';
+import getColors from '../constants/Colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
@@ -24,6 +25,13 @@ const { width } = Dimensions.get('window');
 export default function MiniPlayer() {
   const router = useRouter();
   const segments = useSegments();
+  const { theme } = useTheme();
+  const colors = getColors(theme);
+  // Subtle shadow based on theme
+  const shadowStyle =
+    theme === 'dark'
+      ? { shadowOpacity: 0.04, shadowRadius: 2, elevation: 1 }
+      : { shadowOpacity: 0.08, shadowRadius: 6, elevation: 4 };
   const {
     isPlaying,
     currentAudio,
@@ -95,6 +103,8 @@ export default function MiniPlayer() {
           styles.container,
           animatedStyle,
           isSectionScreen ? styles.sectionScreenContainer : null,
+          { backgroundColor: colors.white, shadowColor: colors.shadow },
+          shadowStyle,
         ]}
       >
         <TouchableOpacity
@@ -102,14 +112,20 @@ export default function MiniPlayer() {
           onPress={navigateToPlayer}
           activeOpacity={0.9}
         >
-          <Text style={styles.title} numberOfLines={1}>
+          <Text
+            style={[styles.title, { color: colors.textDark }]}
+            numberOfLines={1}
+          >
             {currentAudio.title}
           </Text>
-          <TouchableOpacity style={styles.playButton} onPress={handlePlayPause}>
+          <TouchableOpacity
+            style={[styles.playButton, { backgroundColor: colors.primary }]}
+            onPress={handlePlayPause}
+          >
             {isPlaying ? (
-              <Pause size={20} color={Colors.white} />
+              <Pause size={20} color={colors.white} />
             ) : (
-              <Play size={20} color={Colors.white} />
+              <Play size={20} color={colors.white} />
             )}
           </TouchableOpacity>
         </TouchableOpacity>
@@ -124,11 +140,9 @@ const styles = StyleSheet.create({
     bottom: 50,
     left: 0,
     right: 0,
-    backgroundColor: Colors.primary,
     padding: 12,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -148,7 +162,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
@@ -157,6 +170,5 @@ const styles = StyleSheet.create({
   playButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
 });
