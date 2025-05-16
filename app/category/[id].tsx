@@ -1,22 +1,31 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import Colors from '../../constants/Colors';
+import getColors from '../../constants/Colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { MOCK_DATA } from '../../data/mockData';
 import SectionCard from '../../components/SectionCard';
 
 export default function CategoryScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { theme } = useTheme();
+  const colors = getColors(theme);
 
   // Find the category data
-  const category = MOCK_DATA.find(cat => cat.id === id);
+  const category = MOCK_DATA.find((cat) => cat.id === id);
 
   if (!category) {
     return (
-      <View style={styles.container}>
-        <Text>Category not found</Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={{ color: colors.textDark }}>Category not found</Text>
       </View>
     );
   }
@@ -26,30 +35,48 @@ export default function CategoryScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen 
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen
         options={{
           headerShown: false,
         }}
       />
-      
+
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.white,
+            borderBottomColor: colors.shadow,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.backButton,
+            {
+              backgroundColor:
+                theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+            },
+          ]}
           onPress={() => router.back()}
         >
-          <ArrowLeft color={Colors.textDark} size={24} />
+          <ArrowLeft color={colors.textDark} size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{category.title}</Text>
+        <Text style={[styles.headerTitle, { color: colors.textDark }]}>
+          {category.title}
+        </Text>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={styles.title}>All Sections</Text>
+        <Text style={[styles.title, { color: colors.textDark }]}>
+          All Sections
+        </Text>
         {category.sections.map((section, index) => (
           <SectionCard
             key={section.id}
@@ -66,7 +93,6 @@ export default function CategoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -74,20 +100,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   backButton: {
     padding: 8,
     marginRight: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.textDark,
   },
   content: {
     flex: 1,
@@ -98,7 +120,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: Colors.textDark,
     marginBottom: 24,
   },
 });
