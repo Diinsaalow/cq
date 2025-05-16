@@ -9,13 +9,16 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Play, ArrowLeft } from 'lucide-react-native';
-import Colors from '../../constants/Colors';
+import getColors from '../../constants/Colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { MOCK_DATA } from '../../data/mockData';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function SectionScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { theme } = useTheme();
+  const colors = getColors(theme);
 
   // Find the section data
   const section = MOCK_DATA.flatMap((category) => category.sections).find(
@@ -24,14 +27,14 @@ export default function SectionScreen() {
 
   if (!section) {
     return (
-      <View style={styles.container}>
-        <Text>Section not found</Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={{ color: colors.textDark }}>Section not found</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
         options={{
           headerShown: false,
@@ -39,28 +42,30 @@ export default function SectionScreen() {
       />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.white }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <ArrowLeft color={Colors.textDark} size={24} />
+          <ArrowLeft color={colors.textDark} size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{section.title}</Text>
+        <Text style={[styles.headerTitle, { color: colors.textDark }]}>
+          {section.title}
+        </Text>
       </View>
 
       {/* Hero Section */}
-      {/* <View style={styles.hero}>
+      {/* <View style={[styles.hero, { backgroundColor: colors.white, shadowColor: colors.shadow }]}> 
         <Image 
           source={{ uri: section.imageUrl }} 
           style={styles.heroImage}
         />
         <View style={styles.heroContent}>
-          <Text style={styles.heroTitle}>{section.title}</Text>
-          <Text style={styles.heroSubtitle}>{section.subtitle}</Text>
-          <TouchableOpacity style={styles.playAllButton}>
-            <Play color={Colors.white} size={20} />
-            <Text style={styles.playAllText}>Play All</Text>
+          <Text style={[styles.heroTitle, { color: colors.textDark }]}>{section.title}</Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textLight }]}>{section.subtitle}</Text>
+          <TouchableOpacity style={[styles.playAllButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}> 
+            <Play color={colors.white} size={20} />
+            <Text style={[styles.playAllText, { color: colors.white }]}>Play All</Text>
           </TouchableOpacity>
         </View>
       </View> */}
@@ -74,7 +79,10 @@ export default function SectionScreen() {
             style={styles.audioItemContainer}
           >
             <TouchableOpacity
-              style={styles.audioItem}
+              style={[
+                styles.audioItem,
+                { backgroundColor: colors.white, shadowColor: colors.shadow },
+              ]}
               onPress={() =>
                 router.push({
                   pathname: '/player',
@@ -83,11 +91,17 @@ export default function SectionScreen() {
               }
             >
               <View style={styles.audioInfo}>
-                <Text style={styles.audioTitle}>Audio {index + 1}</Text>
-                <Text style={styles.audioDuration}>3:45</Text>
+                <Text style={[styles.audioTitle, { color: colors.textDark }]}>
+                  Audio {index + 1}
+                </Text>
+                <Text
+                  style={[styles.audioDuration, { color: colors.textLight }]}
+                >
+                  3:45
+                </Text>
               </View>
               <TouchableOpacity style={styles.playButton}>
-                <Play size={16} color={Colors.white} />
+                <Play size={16} color={colors.white} />
               </TouchableOpacity>
             </TouchableOpacity>
           </Animated.View>
@@ -100,7 +114,6 @@ export default function SectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -108,7 +121,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
   },
@@ -121,14 +133,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.textDark,
   },
   hero: {
     padding: 20,
-    backgroundColor: Colors.white,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -146,29 +155,24 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.textDark,
     marginBottom: 8,
   },
   heroSubtitle: {
     fontSize: 16,
-    color: Colors.textLight,
     marginBottom: 20,
   },
   playAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   playAllText: {
-    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
@@ -184,10 +188,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.white,
     padding: 16,
     borderRadius: 12,
-    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -200,21 +202,13 @@ const styles = StyleSheet.create({
   audioTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.textDark,
-    marginBottom: 4,
   },
   audioDuration: {
     fontSize: 14,
-    color: Colors.textLight,
   },
   playButton: {
-    backgroundColor: Colors.primary,
-    padding: 8,
-    borderRadius: 8,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: '#4CAF50',
+    padding: 10,
+    borderRadius: 50,
   },
 });

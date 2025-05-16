@@ -16,7 +16,8 @@ import {
   SkipForward,
   Volume2,
 } from 'lucide-react-native';
-import Colors from '../constants/Colors';
+import getColors from '../constants/Colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { MOCK_DATA } from '../data/mockData';
 import { useAudio } from '../contexts/AudioContext';
 
@@ -26,6 +27,8 @@ export default function PlayerScreen() {
   const router = useRouter();
   const { sectionId, audioIndex: audioIndexParam } = useLocalSearchParams();
   const audioIndex = Number(audioIndexParam) || 0;
+  const { theme } = useTheme();
+  const colors = getColors(theme);
 
   // Get audio context
   const {
@@ -113,8 +116,8 @@ export default function PlayerScreen() {
 
   if (!section) {
     return (
-      <View style={styles.container}>
-        <Text>Section not found</Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={{ color: colors.textDark }}>Section not found</Text>
       </View>
     );
   }
@@ -123,18 +126,22 @@ export default function PlayerScreen() {
   const currentAudio = audioFiles[currentAudioIndex];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: colors.lightGray }]}
           onPress={() => router.back()}
         >
-          <ArrowLeft color={Colors.textDark} size={24} />
+          <ArrowLeft color={colors.textDark} size={24} />
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Now Playing</Text>
-          <Text style={styles.headerSubtitle}>{section.title}</Text>
+          <Text style={[styles.headerTitle, { color: colors.textLight }]}>
+            Now Playing
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textDark }]}>
+            {section.title}
+          </Text>
         </View>
       </View>
 
@@ -145,25 +152,36 @@ export default function PlayerScreen() {
 
       {/* Track Info */}
       <View style={styles.trackInfo}>
-        <Text style={styles.trackTitle}>
+        <Text style={[styles.trackTitle, { color: colors.textDark }]}>
           {currentAudio?.title || `Audio ${currentAudioIndex + 1}`}
         </Text>
-        <Text style={styles.trackSubtitle}>{section.title}</Text>
+        <Text style={[styles.trackSubtitle, { color: colors.textLight }]}>
+          {section.title}
+        </Text>
       </View>
 
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
+        <View
+          style={[styles.progressBar, { backgroundColor: colors.lightGray }]}
+        >
           <View
             style={[
               styles.progress,
-              { width: `${duration > 0 ? (position / duration) * 100 : 0}%` },
+              {
+                width: `${duration > 0 ? (position / duration) * 100 : 0}%`,
+                backgroundColor: colors.primary,
+              },
             ]}
           />
         </View>
         <View style={styles.timeContainer}>
-          <Text style={styles.timeText}>{formatTime(position)}</Text>
-          <Text style={styles.timeText}>{formatTime(duration)}</Text>
+          <Text style={[styles.timeText, { color: colors.textLight }]}>
+            {formatTime(position)}
+          </Text>
+          <Text style={[styles.timeText, { color: colors.textLight }]}>
+            {formatTime(duration)}
+          </Text>
         </View>
       </View>
 
@@ -176,18 +194,24 @@ export default function PlayerScreen() {
         >
           <SkipBack
             size={32}
-            color={currentAudioIndex === 0 ? Colors.textLight : Colors.textDark}
+            color={currentAudioIndex === 0 ? colors.textLight : colors.textDark}
           />
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.playButton}
+          style={[
+            styles.playButton,
+            {
+              backgroundColor: colors.primary,
+              shadowColor: colors.primary,
+            },
+          ]}
           onPress={handlePlayPause}
           disabled={loading}
         >
           {isPlaying ? (
-            <Pause size={32} color={Colors.white} />
+            <Pause size={32} color={colors.white} />
           ) : (
-            <Play size={32} color={Colors.white} />
+            <Play size={32} color={colors.white} />
           )}
         </TouchableOpacity>
         <TouchableOpacity
@@ -199,8 +223,8 @@ export default function PlayerScreen() {
             size={32}
             color={
               currentAudioIndex === audioFiles.length - 1
-                ? Colors.textLight
-                : Colors.textDark
+                ? colors.textLight
+                : colors.textDark
             }
           />
         </TouchableOpacity>
@@ -208,9 +232,9 @@ export default function PlayerScreen() {
 
       {/* Volume Control */}
       {/* <View style={styles.volumeContainer}>
-        <Volume2 size={20} color={Colors.textLight} />
-        <View style={styles.volumeBar}>
-          <View style={styles.volumeLevel} />
+        <Volume2 size={20} color={colors.textLight} />
+        <View style={[styles.volumeBar, { backgroundColor: colors.lightGray }]}>
+          <View style={[styles.volumeLevel, { backgroundColor: colors.primary }]} />
         </View>
       </View> */}
     </View>
@@ -220,7 +244,6 @@ export default function PlayerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -233,19 +256,16 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   headerText: {
     flex: 1,
   },
   headerTitle: {
     fontSize: 16,
-    color: Colors.textLight,
   },
   headerSubtitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.textDark,
   },
   albumArtContainer: {
     alignItems: 'center',
@@ -264,12 +284,10 @@ const styles = StyleSheet.create({
   trackTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.textDark,
     marginBottom: 8,
   },
   trackSubtitle: {
     fontSize: 16,
-    color: Colors.textLight,
   },
   progressContainer: {
     paddingHorizontal: 20,
@@ -277,14 +295,11 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 6,
-    backgroundColor: 'rgba(0,0,0,0.1)',
     borderRadius: 10,
     marginBottom: 8,
   },
   progress: {
-    width: '30%',
     height: '100%',
-    backgroundColor: Colors.primary,
     borderRadius: 2,
   },
   timeContainer: {
@@ -293,7 +308,6 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 12,
-    color: Colors.textLight,
   },
   controls: {
     flexDirection: 'row',
@@ -305,11 +319,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   playButton: {
-    backgroundColor: Colors.primary,
     padding: 24,
     borderRadius: 40,
     marginHorizontal: 20,
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -323,14 +335,12 @@ const styles = StyleSheet.create({
   volumeBar: {
     flex: 1,
     height: 4,
-    backgroundColor: 'rgba(0,0,0,0.1)',
     borderRadius: 2,
     marginLeft: 12,
   },
   volumeLevel: {
     width: '70%',
     height: '100%',
-    backgroundColor: Colors.primary,
     borderRadius: 2,
   },
 });
