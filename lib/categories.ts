@@ -30,7 +30,6 @@ export const getCategoriesWithSections = async () => {
       [Query.orderAsc('order')]
     );
 
-    console.log('section one', sections.documents[0].categoryId.$id);
 
     // Organize sections by category
     const categoriesWithSections = categories.documents.map((category) => ({

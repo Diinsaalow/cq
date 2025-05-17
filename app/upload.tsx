@@ -29,6 +29,7 @@ import * as FileSystem from 'expo-file-system';
 import { getCategoriesWithSections } from '../lib/categories';
 import type { CategoryData } from '../types';
 import SectionSelector from './components/SectionSelector';
+import { formatFileSize } from '../utils/utils';
 
 // Helper: map backend category/section to local type
 const mapCategory = (cat: any) => ({
@@ -42,7 +43,6 @@ const mapCategory = (cat: any) => ({
 
 export default function UploadScreen() {
   const router = useRouter();
-  const { username } = useAuth();
   const { theme } = useTheme();
   const colors = getColors(theme);
   const [title, setTitle] = useState('');
@@ -161,13 +161,6 @@ export default function UploadScreen() {
         return newProgress;
       });
     }, 300);
-  };
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'Unknown size';
-    if (bytes < 1024) return bytes + ' bytes';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   return (

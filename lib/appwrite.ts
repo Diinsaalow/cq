@@ -9,7 +9,9 @@ const config = {
     users: process.env.EXPO_PUBLIC_APPWRITE_COL_USERS_ID || '',
     categories: process.env.EXPO_PUBLIC_APPWRITE_COL_CATEGORIES_ID || '',
     sections: process.env.EXPO_PUBLIC_APPWRITE_COL_SECTIONS_ID || '',
+    audioFiles: process.env.EXPO_PUBLIC_APPWRITE_COL_AUDIO_FILES_ID || '',
   },
+  audio: process.env.EXPO_PUBLIC_APPWRITE_AUDIO_BUCKET_ID || '',
 };
 
 const client = new Client()

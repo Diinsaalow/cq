@@ -4,19 +4,36 @@ import { client, config, database } from './appwrite';
 import { ID, UploadProgress } from 'react-native-appwrite';
 import * as FileSystem from 'expo-file-system';
 import { Query } from 'react-native-appwrite';
+import { Audio } from 'expo-av';
 
 // Initialize Storage
 export const storage = new Storage(client);
 
 // Bucket IDs
-export const AUDIO_BUCKET_ID = 'audio_files';
+export const AUDIO_BUCKET_ID = config.audio;
+
+// Helper to get audio duration in seconds
+const getAudioDuration = async (fileUri: string): Promise<number> => {
+  try {
+    const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+    const status = await sound.getStatusAsync();
+    await sound.unloadAsync();
+    if ('isLoaded' in status && status.isLoaded && status.durationMillis) {
+      return status.durationMillis / 1000;
+    }
+    return 0;
+  } catch (e) {
+    console.error('Error getting audio duration:', e);
+    return 0;
+  }
+};
 
 // Upload an audio file
 export const uploadAudioFile = async (
   fileUri: string,
   fileName: string,
   title: string,
-  sectionId?: string,
+  sectionId: string,
   onProgress?: (progress: UploadProgress) => void
 ) => {
   try {
@@ -30,9 +47,12 @@ export const uploadAudioFile = async (
     const file = {
       uri: fileUri,
       name: fileName,
-      type: 'audio/mpeg', // Adjust based on your file type
+      type: 'audio/mp3', // Adjust based on your file type
       size: fileInfo.size || 0,
     };
+
+    // Get audio duration
+    const duration = await getAudioDuration(fileUri);
 
     // 1. Upload the file to the audio bucket
     const fileUpload = await storage.createFile(
@@ -46,16 +66,16 @@ export const uploadAudioFile = async (
     // 2. Create a database entry linking to this file
     const audioRecord = await database.createDocument(
       config.db,
-      'audioFiles',
+      config.col.audioFiles,
       ID.unique(),
       {
         title: title,
-        sectionId: sectionId || 'uncategorized',
+        sectionId: sectionId,
         fileId: fileUpload.$id,
         fileName: fileName,
         fileSize: fileInfo.size,
         uploadedAt: new Date().toISOString(),
-        duration: 0,
+        duration,
       }
     );
 
@@ -72,28 +92,4 @@ export const uploadAudioFile = async (
 // Get file URL
 export const getFileUrl = (fileId: string) => {
   return storage.getFileView(AUDIO_BUCKET_ID, fileId);
-};
-
-// Delete audio file
-export const deleteAudioFile = async (fileId: string) => {
-  try {
-    // Delete from storage
-    await storage.deleteFile(AUDIO_BUCKET_ID, fileId);
-
-    // Delete from database
-    const audioFiles = await database.listDocuments(config.db, 'audioFiles', [
-      Query.equal('fileId', fileId),
-    ]);
-
-    if (audioFiles.documents.length > 0) {
-      await database.deleteDocument(
-        config.db,
-        'audioFiles',
-        audioFiles.documents[0].$id
-      );
-    }
-  } catch (error) {
-    console.error('Error deleting audio file:', error);
-    throw error;
-  }
 };
