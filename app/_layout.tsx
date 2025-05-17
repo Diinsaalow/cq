@@ -7,12 +7,13 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { AudioProvider } from '../contexts/AudioContext';
 import MiniPlayer from '../components/MiniPlayer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ThemeProvider } from '../contexts/ThemeContext';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
 function RootLayoutNav() {
   const { isAuthenticated } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const { theme } = useTheme();
 
   console.log('Segments', segments);
 
@@ -49,7 +50,8 @@ function RootLayoutNav() {
         <Stack.Screen name="player" />
         <Stack.Screen name="+not-found" />
       </Stack>
-      <StatusBar style="dark" />
+
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       {showMiniPlayer && <MiniPlayer />}
     </Fragment>
   );
