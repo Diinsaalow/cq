@@ -10,7 +10,7 @@ import { Audio } from 'expo-av';
 export const storage = new Storage(client);
 
 // Bucket IDs
-export const AUDIO_BUCKET_ID = config.audio;
+export const AUDIO_BUCKET_ID = 'audio_files_id';
 
 // Helper to get audio duration in seconds
 const getAudioDuration = async (fileUri: string): Promise<number> => {
@@ -66,7 +66,7 @@ export const uploadAudioFile = async (
     // 2. Create a database entry linking to this file
     const audioRecord = await database.createDocument(
       config.db,
-      config.col.audioFiles,
+      'audio_files_col_id',
       ID.unique(),
       {
         title: title,

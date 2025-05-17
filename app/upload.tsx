@@ -30,6 +30,7 @@ import { getCategoriesWithSections } from '../lib/categories';
 import type { CategoryData } from '../types';
 import SectionSelector from './components/SectionSelector';
 import { formatFileSize } from '../utils/utils';
+import { uploadAudioFile } from '../lib/storage';
 
 // Helper: map backend category/section to local type
 const mapCategory = (cat: any) => ({
@@ -129,38 +130,44 @@ export default function UploadScreen() {
       return;
     }
 
-    // Simulate upload
     setUploading(true);
     setProgress(0);
-
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        const newProgress = prev + 10;
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          // Simulate completion
-          setTimeout(() => {
-            setUploading(false);
-            Alert.alert(
-              'Upload Complete',
-              'The audio file has been uploaded successfully',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    setTitle('');
-                    setSelectedSection(null);
-                    setSelectedFile(null);
-                    setProgress(0);
-                  },
-                },
-              ]
-            );
-          }, 500);
+    try {
+      await uploadAudioFile(
+        selectedFile.uri,
+        selectedFile.name,
+        title,
+        selectedSection,
+        (progress) => {
+          if (progress && progress.progress) {
+            setProgress(Math.round(progress.progress * 100));
+          }
         }
-        return newProgress;
-      });
-    }, 300);
+      );
+      setUploading(false);
+      setProgress(100);
+      Alert.alert(
+        'Upload Complete',
+        'The audio file has been uploaded successfully',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setTitle('');
+              setSelectedSection(null);
+              setSelectedFile(null);
+              setProgress(0);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      setUploading(false);
+      Alert.alert(
+        'Upload Failed',
+        'There was an error uploading the audio file.'
+      );
+    }
   };
 
   return (
