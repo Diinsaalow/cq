@@ -15,7 +15,15 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import getColors from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
-import { ArrowLeft, Upload, File, X, Check, Music } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Upload,
+  File,
+  X,
+  Check,
+  Music,
+  ChevronDown,
+} from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import SectionSelector from './components/SectionSelector';
@@ -32,6 +40,8 @@ export default function UploadScreen() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showSectionModal, setShowSectionModal] = useState(false);
 
   // Mock categories and sections data
   const categories = [
@@ -170,6 +180,87 @@ export default function UploadScreen() {
         </Text>
       </View>
 
+      {/* Overlay for dropdowns (always rendered above content, but below modals) */}
+      {(showCategoryModal || showSectionModal) && (
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={() => {
+            setShowCategoryModal(false);
+            setShowSectionModal(false);
+          }}
+        />
+      )}
+
+      {/* Category Modal (always rendered above overlay) */}
+      {showCategoryModal && (
+        <View
+          style={[
+            styles.dropdownModal,
+            {
+              top: 140,
+              backgroundColor: colors.white,
+              borderColor: colors.shadow,
+            },
+          ]}
+        >
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={cat.id}
+              style={{ padding: 16 }}
+              onPress={() => {
+                setSelectedCategory(cat.id);
+                setSelectedSection(null);
+                setShowCategoryModal(false);
+              }}
+            >
+              <Text style={{ color: colors.textDark }}>{cat.title}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={{ padding: 16 }}
+            onPress={() => setShowCategoryModal(false)}
+          >
+            <Text style={{ color: colors.textLight }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Section Modal (always rendered above overlay) */}
+      {showSectionModal && (
+        <View
+          style={[
+            styles.dropdownModal,
+            {
+              top: 220,
+              backgroundColor: colors.white,
+              borderColor: colors.shadow,
+            },
+          ]}
+        >
+          {categories
+            .find((cat) => cat.id === selectedCategory)
+            ?.sections.map((sec) => (
+              <TouchableOpacity
+                key={sec.id}
+                style={{ padding: 16 }}
+                onPress={() => {
+                  setSelectedSection(sec.id);
+                  setShowSectionModal(false);
+                }}
+              >
+                <Text style={{ color: colors.textDark }}>{sec.title}</Text>
+              </TouchableOpacity>
+            ))}
+          <TouchableOpacity
+            style={{ padding: 16 }}
+            onPress={() => setShowSectionModal(false)}
+          >
+            <Text style={{ color: colors.textLight }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.contentContainer}
@@ -214,13 +305,65 @@ export default function UploadScreen() {
         {/* Category & Section Selection */}
         <View style={styles.inputContainer}>
           <Text style={[styles.label, { color: colors.textDark }]}>
-            Select Section
+            Category
           </Text>
-          <SectionSelector
-            categories={categories}
-            selectedSection={selectedSection}
-            onSectionSelect={setSelectedSection}
-          />
+          <TouchableOpacity
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.white,
+                borderColor: colors.shadow,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              },
+            ]}
+            onPress={() => setShowCategoryModal(true)}
+          >
+            <Text
+              style={{
+                color: selectedCategory ? colors.textDark : colors.textLight,
+              }}
+            >
+              {selectedCategory
+                ? categories.find((cat) => cat.id === selectedCategory)?.title
+                : 'Select Category'}
+            </Text>
+            <ChevronDown size={20} color={colors.textLight} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.inputContainer}>
+          <Text style={[styles.label, { color: colors.textDark }]}>
+            Section
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.white,
+                borderColor: colors.shadow,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                opacity: selectedCategory ? 1 : 0.5,
+              },
+            ]}
+            onPress={() => selectedCategory && setShowSectionModal(true)}
+            disabled={!selectedCategory}
+          >
+            <Text
+              style={{
+                color: selectedSection ? colors.textDark : colors.textLight,
+              }}
+            >
+              {selectedSection
+                ? categories
+                    .find((cat) => cat.id === selectedCategory)
+                    ?.sections.find((sec) => sec.id === selectedSection)?.title
+                : 'Select Section'}
+            </Text>
+            <ChevronDown size={20} color={colors.textLight} />
+          </TouchableOpacity>
         </View>
 
         {/* File Upload Area */}
@@ -475,5 +618,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.01)', // almost transparent
+    zIndex: 9,
+  },
+  dropdownModal: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    zIndex: 11,
+    elevation: 12,
+    backgroundColor: 'white',
   },
 });

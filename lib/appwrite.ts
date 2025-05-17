@@ -7,6 +7,8 @@ const config = {
   db: process.env.EXPO_PUBLIC_APPWRITE_DB_ID || '',
   col: {
     users: process.env.EXPO_PUBLIC_APPWRITE_COL_USERS_ID || '',
+    categories: process.env.EXPO_PUBLIC_APPWRITE_COL_CATEGORIES_ID || '',
+    sections: process.env.EXPO_PUBLIC_APPWRITE_COL_SECTIONS_ID || '',
   },
 };
 
