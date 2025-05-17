@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,19 @@ import {
 } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import { getCategoriesWithSections } from '../lib/categories';
+import type { CategoryData } from '../types';
 import SectionSelector from './components/SectionSelector';
+
+// Helper: map backend category/section to local type
+const mapCategory = (cat: any) => ({
+  id: cat.$id || cat.id,
+  title: cat.title,
+  sections: (cat.sections || []).map((sec: any) => ({
+    id: sec.$id || sec.id,
+    title: sec.title,
+  })),
+});
 
 export default function UploadScreen() {
   const router = useRouter();
@@ -42,31 +54,24 @@ export default function UploadScreen() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
+  const [categories, setCategories] = useState<CategoryData[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
-  // Mock categories and sections data
-  const categories = [
-    {
-      id: 'cat1',
-      title: 'Category 1',
-      sections: [
-        { id: 'sec1', title: 'Section 1' },
-        { id: 'sec2', title: 'Section 2' },
-      ],
-    },
-    {
-      id: 'cat2',
-      title: 'Category 2',
-      sections: [
-        { id: 'sec3', title: 'Section 3' },
-        { id: 'sec4', title: 'Section 4' },
-      ],
-    },
-    {
-      id: 'cat3',
-      title: 'Category 3',
-      sections: [{ id: 'sec5', title: 'Section 5' }],
-    },
-  ];
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setLoadingCategories(true);
+      try {
+        const data = await getCategoriesWithSections();
+        console.log('Categories with sections', data);
+        setCategories(data.map(mapCategory));
+      } catch (e) {
+        Alert.alert('Error', 'Failed to load categories');
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handlePickAudio = async () => {
     try {
@@ -318,14 +323,17 @@ export default function UploadScreen() {
                 justifyContent: 'space-between',
               },
             ]}
-            onPress={() => setShowCategoryModal(true)}
+            onPress={() => !loadingCategories && setShowCategoryModal(true)}
+            disabled={loadingCategories}
           >
             <Text
               style={{
                 color: selectedCategory ? colors.textDark : colors.textLight,
               }}
             >
-              {selectedCategory
+              {loadingCategories
+                ? 'Loading...'
+                : selectedCategory
                 ? categories.find((cat) => cat.id === selectedCategory)?.title
                 : 'Select Category'}
             </Text>

@@ -30,11 +30,13 @@ export const getCategoriesWithSections = async () => {
       [Query.orderAsc('order')]
     );
 
+    console.log('section one', sections.documents[0].categoryId.$id);
+
     // Organize sections by category
     const categoriesWithSections = categories.documents.map((category) => ({
       ...category,
       sections: sections.documents.filter(
-        (section) => section.categoryId === category.$id
+        (section) => section.categoryId.$id === category.$id
       ),
     }));
     return categoriesWithSections;
@@ -44,43 +46,17 @@ export const getCategoriesWithSections = async () => {
   }
 };
 
-// Get sections for a specific category
-export const getSectionsByCategory = async (categoryId: string) => {
-  try {
-    const sections = await database.listDocuments(
-      config.db,
-      config.col.sections,
-      [Query.equal('categoryId', categoryId), Query.orderAsc('order')]
-    );
-    return sections.documents;
-  } catch (error) {
-    console.error('Error getting sections by category:', error);
-    throw error;
-  }
-};
-
-// Add a new section to a category
-// export const addSection = async (
-//   categoryId: string,
-//   title: string,
-//   description?: string
-// ) => {
+// // Get sections for a specific category
+// export const getSectionsByCategory = async (categoryId: string) => {
 //   try {
-//     const section = await database.createDocument(
+//     const sections = await database.listDocuments(
 //       config.db,
 //       config.col.sections,
-//       ID.unique(),
-//       {
-//         title,
-//         description: description || '',
-//         categoryId,
-//         order: 0, // You might want to calculate this based on existing sections
-//         createdAt: new Date().toISOString(),
-//       }
+//       [Query.equal('categoryId', categoryId.), Query.orderAsc('order')]
 //     );
-//     return section;
+//     return sections.documents;
 //   } catch (error) {
-//     console.error('Error adding section:', error);
+//     console.error('Error getting sections by category:', error);
 //     throw error;
 //   }
 // };
