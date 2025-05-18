@@ -90,7 +90,7 @@ export default function CategoryDetailScreen() {
     );
   };
 
-  const handleSectionPress = (sectionId) => {
+  const handleSectionPress = (sectionId: string) => {
     router.push(`/admin/section/${sectionId}`);
   };
 
