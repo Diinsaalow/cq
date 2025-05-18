@@ -7,7 +7,7 @@ import { Audio } from 'expo-av';
 
 // Bucket IDs
 export const AUDIO_BUCKET_ID = config.audio;
-export const IMAGE_BUCKET_ID = config.image
+export const IMAGE_BUCKET_ID = config.image;
 
 // Log bucket ID for debugging
 console.log('=== Storage Configuration ===');
