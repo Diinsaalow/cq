@@ -1,12 +1,11 @@
 import { database, config } from './appwrite';
-import { ID, Query } from 'react-native-appwrite';
+import {  Query } from 'react-native-appwrite';
 
 // Get all categories
 export const getCategories = async () => {
   const categories = await database.listDocuments(
     config.db,
     config.col.categories,
-    [Query.orderAsc('order')]
   );
 
   console.log('All categories', categories);
@@ -20,14 +19,12 @@ export const getCategoriesWithSections = async () => {
     const categories = await database.listDocuments(
       config.db,
       config.col.categories,
-      [Query.orderAsc('order')]
     );
 
     // Get all sections
     const sections = await database.listDocuments(
       config.db,
       config.col.sections,
-      [Query.orderAsc('order')]
     );
 
     // Organize sections by category
