@@ -7,10 +7,12 @@ import { Audio } from 'expo-av';
 
 // Bucket IDs
 export const AUDIO_BUCKET_ID = config.audio;
+export const IMAGE_BUCKET_ID = config.image
 
 // Log bucket ID for debugging
 console.log('=== Storage Configuration ===');
 console.log('Audio bucket ID:', AUDIO_BUCKET_ID);
+console.log('Image bucket ID:', IMAGE_BUCKET_ID);
 console.log('Storage client:', storage);
 console.log('===========================');
 
@@ -108,6 +110,31 @@ export const uploadAudioFile = async (
     console.error('Error details:', JSON.stringify(error, null, 2));
     console.error('Bucket ID used:', AUDIO_BUCKET_ID);
     console.error('==========================');
+    throw error;
+  }
+};
+
+// Upload an image file
+export const uploadImageFile = async (fileUri: string, fileName: string) => {
+  try {
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    if (!fileInfo.exists) {
+      throw new Error('Image file does not exist');
+    }
+    const file = {
+      uri: fileUri,
+      name: fileName,
+      type: 'image/jpeg',
+      size: fileInfo.size || 0,
+    };
+    const fileUpload = await storage.createFile(
+      IMAGE_BUCKET_ID,
+      ID.unique(),
+      file
+    );
+    return fileUpload.$id;
+  } catch (error) {
+    console.error('Image upload error:', error);
     throw error;
   }
 };

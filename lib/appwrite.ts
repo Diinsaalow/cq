@@ -12,6 +12,7 @@ const config = {
     audioFiles: process.env.EXPO_PUBLIC_APPWRITE_AUDIO_COL_ID || '',
   },
   audio: process.env.EXPO_PUBLIC_APPWRITE_AUDIO_BUCKET_ID || '',
+  image: process.env.EXPO_PUBLIC_APPWRITE_IMAGE_BUCKET_ID || '',
 };
 
 // Detailed debug logging

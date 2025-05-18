@@ -7,6 +7,13 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Modal,
+  Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import getColors from '../../../constants/Colors';
@@ -22,6 +29,23 @@ import {
 } from 'lucide-react-native';
 import { database, config } from '../../../lib/appwrite';
 import { Query } from 'react-native-appwrite';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadImageFile } from '../../../lib/storage';
+
+const { width } = Dimensions.get('window');
+
+interface Section {
+  $id: string;
+  title: string;
+  count?: number;
+  imageId?: string;
+}
+
+interface Category {
+  $id: string;
+  title: string;
+}
 
 export default function CategoryDetailScreen() {
   const router = useRouter();
@@ -29,13 +53,26 @@ export default function CategoryDetailScreen() {
   const { theme } = useTheme();
   const colors = getColors(theme);
 
-  const [category, setCategory] = useState(null);
-  const [sections, setSections] = useState([]);
+  const [category, setCategory] = useState<Category | null>(null);
+  const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newSectionTitle, setNewSectionTitle] = useState('');
+  const [newSectionImageUri, setNewSectionImageUri] = useState<string | null>(
+    null
+  );
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState('');
 
   useEffect(() => {
     fetchCategoryAndSections();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
   }, [id]);
 
   const fetchCategoryAndSections = async () => {
@@ -45,17 +82,20 @@ export default function CategoryDetailScreen() {
       const categoryData = await database.getDocument(
         config.db,
         config.col.categories,
-        id
+        typeof id === 'string' ? id : id[0]
       );
-      setCategory(categoryData);
+      setCategory(categoryData as unknown as Category);
 
       // Fetch sections for this category
       const sectionsData = await database.listDocuments(
         config.db,
         config.col.sections,
-        [Query.equal('categoryId', id), Query.orderDesc('$createdAt')]
+        [
+          Query.equal('categoryId', typeof id === 'string' ? id : id[0]),
+          Query.orderDesc('$createdAt'),
+        ]
       );
-      setSections(sectionsData.documents);
+      setSections(sectionsData.documents as unknown as Section[]);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching category data:', err);
@@ -65,14 +105,62 @@ export default function CategoryDetailScreen() {
   };
 
   const handleAddSection = () => {
-    Alert.alert('Add Section', 'This feature will be implemented soon');
+    setShowAddModal(true);
+    setNewSectionTitle('');
+    setNewSectionImageUri(null);
+    setAddError('');
   };
 
-  const handleEditSection = (sectionId) => {
+  const handlePickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setNewSectionImageUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSubmitAddSection = async () => {
+    setAddError('');
+    if (!newSectionTitle.trim()) {
+      setAddError('Section title is required');
+      return;
+    }
+    setAddLoading(true);
+    try {
+      let imageId = '';
+      if (newSectionImageUri) {
+        // Extract file name from URI
+        const fileName = newSectionImageUri.split('/').pop() || 'image.jpg';
+        imageId = await uploadImageFile(newSectionImageUri, fileName);
+      }
+      await database.createDocument(
+        config.db,
+        config.col.sections,
+        'unique()',
+        {
+          title: newSectionTitle,
+          categoryId: typeof id === 'string' ? id : id[0],
+          imageId,
+        }
+      );
+      setShowAddModal(false);
+      fetchCategoryAndSections();
+    } catch (err) {
+      setAddError('Failed to add section');
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  const handleEditSection = (sectionId: string) => {
     Alert.alert('Edit Section', `Edit section ${sectionId}`);
   };
 
-  const handleDeleteSection = (sectionId) => {
+  const handleDeleteSection = (sectionId: string) => {
     Alert.alert(
       'Delete Section',
       'Are you sure you want to delete this section? This will also delete all audio files within it.',
@@ -96,24 +184,24 @@ export default function CategoryDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.white }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft color={colors.textDark} size={24} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textDark }]}>
-          {category ? category.title : 'Category Details'}
-        </Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: colors.primary }]}
-          onPress={handleAddSection}
-        >
-          <Plus color={colors.white} size={20} />
-        </TouchableOpacity>
-      </View>
+      {/* Modern Header with Gradient */}
+      <LinearGradient
+        colors={[colors.primary, colors.gradient.end]}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft color={colors.white} size={24} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {category ? category.title : 'Category Details'}
+          </Text>
+          <View style={styles.headerRight} />
+        </View>
+      </LinearGradient>
 
       {/* Content */}
       {loading ? (
@@ -125,9 +213,7 @@ export default function CategoryDetailScreen() {
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.error }]}>
-            {error}
-          </Text>
+          <Text style={[styles.errorText, { color: '#ff3333' }]}>{error}</Text>
           <TouchableOpacity
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={fetchCategoryAndSections}
@@ -136,128 +222,244 @@ export default function CategoryDetailScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.scrollContainer}>
-          {/* Category Info */}
-          <View
-            style={[styles.categoryInfo, { backgroundColor: colors.white }]}
-          >
-            <Text style={[styles.categoryTitle, { color: colors.textDark }]}>
-              {category?.title}
-            </Text>
-            <View style={styles.categoryMeta}>
-              <View style={styles.metaItem}>
-                <Text style={[styles.metaValue, { color: colors.primary }]}>
-                  {sections.length}
-                </Text>
-                <Text style={[styles.metaLabel, { color: colors.textLight }]}>
-                  Sections
-                </Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Text style={[styles.metaValue, { color: colors.primary }]}>
-                  {sections.reduce(
-                    (total, section) => total + (section.count || 0),
-                    0
-                  )}
-                </Text>
-                <Text style={[styles.metaLabel, { color: colors.textLight }]}>
-                  Audio Files
-                </Text>
+        <Animated.View style={[styles.contentContainer, { opacity: fadeAnim }]}>
+          <ScrollView style={styles.scrollContainer}>
+            {/* Category Info Card */}
+            <View
+              style={[styles.categoryInfo, { backgroundColor: colors.white }]}
+            >
+              <Text style={[styles.categoryTitle, { color: colors.textDark }]}>
+                {category?.title}
+              </Text>
+              <View style={styles.categoryMeta}>
+                <View style={styles.metaItem}>
+                  <Text style={[styles.metaValue, { color: colors.primary }]}>
+                    {sections.length}
+                  </Text>
+                  <Text style={[styles.metaLabel, { color: colors.textLight }]}>
+                    Sections
+                  </Text>
+                </View>
+                <View style={styles.metaItem}>
+                  <Text style={[styles.metaValue, { color: colors.primary }]}>
+                    {sections.reduce(
+                      (total, section) => total + (section.count || 0),
+                      0
+                    )}
+                  </Text>
+                  <Text style={[styles.metaLabel, { color: colors.textLight }]}>
+                    Audio Files
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          {/* Sections List */}
-          <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionTitle, { color: colors.textDark }]}>
-              Sections
-            </Text>
-            <Text style={[styles.sectionSubtitle, { color: colors.textLight }]}>
-              Manage sections in this category
-            </Text>
+            {/* Sections List */}
+            <View style={styles.sectionContainer}>
+              <Text style={[styles.sectionTitle, { color: colors.textDark }]}>
+                Sections
+              </Text>
+              <Text
+                style={[styles.sectionSubtitle, { color: colors.textLight }]}
+              >
+                Manage sections in this category
+              </Text>
 
-            {sections.length === 0 ? (
-              <View style={[styles.emptyState, { borderColor: colors.shadow }]}>
-                <File size={40} color={colors.textLight} />
-                <Text
-                  style={[styles.emptyStateText, { color: colors.textLight }]}
+              {sections.length === 0 ? (
+                <View
+                  style={[styles.emptyState, { borderColor: colors.shadow }]}
                 >
-                  No sections found
-                </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.emptyStateButton,
-                    { backgroundColor: colors.primary },
-                  ]}
-                  onPress={handleAddSection}
-                >
-                  <Text style={{ color: colors.white }}>Add Section</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.sectionsList}>
-                {sections.map((section) => (
-                  <View
-                    key={section.$id}
-                    style={[
-                      styles.sectionItem,
-                      { backgroundColor: colors.white },
-                    ]}
+                  <File size={48} color={colors.textLight} />
+                  <Text
+                    style={[styles.emptyStateText, { color: colors.textLight }]}
                   >
+                    No sections found
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.emptyStateButton,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    onPress={handleAddSection}
+                  >
+                    <Text style={{ color: colors.white }}>Add Section</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.sectionsList}>
+                  {sections.map((section) => (
                     <TouchableOpacity
-                      style={styles.sectionContent}
+                      key={section.$id}
+                      style={[
+                        styles.sectionItem,
+                        { backgroundColor: colors.white },
+                      ]}
                       onPress={() => handleSectionPress(section.$id)}
                     >
-                      <View style={styles.sectionIconContainer}>
-                        <Music size={24} color={colors.primary} />
-                      </View>
-                      <View style={styles.sectionDetails}>
-                        <Text
+                      <View style={styles.sectionContent}>
+                        <View
                           style={[
-                            styles.sectionName,
-                            { color: colors.textDark },
+                            styles.sectionIconContainer,
+                            { backgroundColor: colors.primary + '15' },
                           ]}
                         >
-                          {section.title}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.sectionMeta,
-                            { color: colors.textLight },
-                          ]}
-                        >
-                          {section.count || 0} audio files
-                        </Text>
+                          <Music size={24} color={colors.primary} />
+                        </View>
+                        <View style={styles.sectionDetails}>
+                          <Text
+                            style={[
+                              styles.sectionName,
+                              { color: colors.textDark },
+                            ]}
+                          >
+                            {section.title}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.sectionMeta,
+                              { color: colors.textLight },
+                            ]}
+                          >
+                            {section.count || 0} audio files
+                          </Text>
+                        </View>
+                        <ChevronRight size={20} color={colors.textLight} />
                       </View>
-                      <ChevronRight size={20} color={colors.textLight} />
+                      <View style={styles.sectionActions}>
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton,
+                            { backgroundColor: colors.accent },
+                          ]}
+                          onPress={() => handleEditSection(section.$id)}
+                        >
+                          <Edit size={16} color={colors.white} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionButton]}
+                          onPress={() => handleDeleteSection(section.$id)}
+                        >
+                          <Trash size={16} color={colors.white} />
+                        </TouchableOpacity>
+                      </View>
                     </TouchableOpacity>
-                    <View style={styles.sectionActions}>
-                      <TouchableOpacity
-                        style={[
-                          styles.actionButton,
-                          { backgroundColor: colors.accent },
-                        ]}
-                        onPress={() => handleEditSection(section.$id)}
-                      >
-                        <Edit size={16} color={colors.white} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.actionButton,
-                          { backgroundColor: colors.error },
-                        ]}
-                        onPress={() => handleDeleteSection(section.$id)}
-                      >
-                        <Trash size={16} color={colors.white} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
+                  ))}
+                </View>
+              )}
+            </View>
+          </ScrollView>
+
+          {/* Floating Action Button */}
+          <TouchableOpacity
+            style={[styles.fab, { backgroundColor: colors.primary }]}
+            onPress={handleAddSection}
+          >
+            <Plus color={colors.white} size={24} />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* Add Section Modal */}
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View
+            style={[styles.modalContainer, { backgroundColor: colors.white }]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.textDark }]}>
+              Add Section
+            </Text>
+            <Text style={[styles.modalLabel, { color: colors.textLight }]}>
+              Title *
+            </Text>
+            <TextInput
+              style={[
+                styles.modalInput,
+                { color: colors.textDark, borderColor: colors.shadow },
+              ]}
+              placeholder="Section title"
+              placeholderTextColor={colors.textLight}
+              value={newSectionTitle}
+              onChangeText={setNewSectionTitle}
+              autoFocus
+            />
+            <Text style={[styles.modalLabel, { color: colors.textLight }]}>
+              Image
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.imagePickerButton,
+                { borderColor: colors.primary },
+              ]}
+              onPress={handlePickImage}
+            >
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                {newSectionImageUri ? 'Change Image' : 'Pick Image'}
+              </Text>
+            </TouchableOpacity>
+            {newSectionImageUri && (
+              <View style={styles.imagePreviewContainer}>
+                <Image
+                  source={{ uri: newSectionImageUri }}
+                  style={styles.imagePreview}
+                />
               </View>
             )}
+            <Text
+              style={[
+                styles.modalLabel,
+                { color: colors.textLight, marginTop: 12 },
+              ]}
+            >
+              Category ID
+            </Text>
+            <View
+              style={[
+                styles.modalInput,
+                {
+                  backgroundColor: colors.lightGray,
+                  borderColor: colors.shadow,
+                },
+              ]}
+            >
+              <Text style={{ color: colors.textLight }}>
+                {typeof id === 'string' ? id : id[0]}
+              </Text>
+            </View>
+            {addError ? (
+              <Text style={styles.modalError}>{addError}</Text>
+            ) : null}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleSubmitAddSection}
+                disabled={addLoading}
+              >
+                <Text style={{ color: colors.white, fontWeight: '600' }}>
+                  {addLoading ? 'Adding...' : 'Add Section'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.accent }]}
+                onPress={() => setShowAddModal(false)}
+                disabled={addLoading}
+              >
+                <Text style={{ color: colors.white }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </ScrollView>
-      )}
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -266,26 +468,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerGradient: {
+    paddingTop: 60,
+    paddingBottom: 16,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   backButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  addButton: {
-    padding: 8,
-    borderRadius: 20,
+  headerRight: {
+    width: 40,
+  },
+  contentContainer: {
+    flex: 1,
   },
   scrollContainer: {
     flex: 1,
@@ -317,65 +524,82 @@ const styles = StyleSheet.create({
   },
   categoryInfo: {
     margin: 16,
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   categoryTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
   },
   categoryMeta: {
     flexDirection: 'row',
-    marginTop: 16,
+    marginTop: 20,
   },
   metaItem: {
-    marginRight: 24,
+    marginRight: 32,
   },
   metaValue: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
   },
   metaLabel: {
     fontSize: 14,
+    marginTop: 4,
   },
   sectionContainer: {
     padding: 16,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   emptyState: {
-    padding: 30,
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderRadius: 12,
-    marginVertical: 16,
+    borderRadius: 16,
+    marginVertical: 20,
   },
   emptyStateText: {
     fontSize: 16,
-    marginVertical: 12,
+    marginVertical: 16,
   },
   emptyStateButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
     marginTop: 8,
   },
   sectionsList: {
     marginTop: 16,
   },
   sectionItem: {
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: 16,
+    marginBottom: 16,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   sectionContent: {
     flexDirection: 'row',
@@ -383,13 +607,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   sectionIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   sectionDetails: {
     flex: 1,
@@ -400,7 +623,7 @@ const styles = StyleSheet.create({
   },
   sectionMeta: {
     fontSize: 14,
-    marginTop: 2,
+    marginTop: 4,
   },
   sectionActions: {
     flexDirection: 'row',
@@ -409,8 +632,96 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    padding: 12,
+    padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    borderRadius: 18,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 18,
+    textAlign: 'center',
+  },
+  modalLabel: {
+    fontSize: 14,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  modalError: {
+    color: 'red',
+    marginTop: 8,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  imagePickerButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  imagePreviewContainer: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  imagePreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    resizeMode: 'cover',
+    marginTop: 4,
   },
 });
