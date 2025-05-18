@@ -48,6 +48,7 @@ function RootLayoutNav() {
         <Stack.Screen name="category/[id]" />
         <Stack.Screen name="upload" />
         <Stack.Screen name="player" />
+        <Stack.Screen name="admin" />
         <Stack.Screen name="+not-found" />
       </Stack>
 

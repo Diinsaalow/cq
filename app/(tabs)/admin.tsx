@@ -40,7 +40,7 @@ export default function AdminScreen() {
       title: 'Manage Content',
       icon: <List size={24} color={colors.textDark} />,
       description: 'Edit or delete existing content',
-      onPress: () => console.log('Manage content'),
+      onPress: () => router.push('/admin/content'),
     },
     {
       id: 'users',

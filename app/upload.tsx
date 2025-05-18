@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import getColors from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
+import { logConfig } from '../lib/testConfig';
 import {
   ArrowLeft,
   Upload,
@@ -57,6 +58,11 @@ export default function UploadScreen() {
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // Log config for debugging
+  useEffect(() => {
+    logConfig();
+  }, []);
 
   useEffect(() => {
     const fetchCategories = async () => {

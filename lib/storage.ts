@@ -1,16 +1,18 @@
 // lib/storage.ts
-import { Storage } from 'react-native-appwrite';
-import { client, config, database } from './appwrite';
 import { ID, UploadProgress } from 'react-native-appwrite';
+import { config, database, storage } from './appwrite';
 import * as FileSystem from 'expo-file-system';
 import { Query } from 'react-native-appwrite';
 import { Audio } from 'expo-av';
 
-// Initialize Storage
-export const storage = new Storage(client);
-
 // Bucket IDs
 export const AUDIO_BUCKET_ID = config.audio;
+
+// Log bucket ID for debugging
+console.log('=== Storage Configuration ===');
+console.log('Audio bucket ID:', AUDIO_BUCKET_ID);
+console.log('Storage client:', storage);
+console.log('===========================');
 
 // Helper to get audio duration in seconds
 const getAudioDuration = async (fileUri: string): Promise<number> => {
@@ -37,8 +39,17 @@ export const uploadAudioFile = async (
   onProgress?: (progress: UploadProgress) => void
 ) => {
   try {
+    console.log('=== Starting File Upload ===');
+    console.log('File URI:', fileUri);
+    console.log('File Name:', fileName);
+    console.log('Title:', title);
+    console.log('Section ID:', sectionId);
+    console.log('Bucket ID:', AUDIO_BUCKET_ID);
+
     // Read the file
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    console.log('File Info:', fileInfo);
+
     if (!fileInfo.exists) {
       throw new Error('File does not exist');
     }
@@ -51,10 +62,14 @@ export const uploadAudioFile = async (
       size: fileInfo.size || 0,
     };
 
+    console.log('Prepared file object:', file);
+
     // Get audio duration
     const duration = await getAudioDuration(fileUri);
+    console.log('Audio duration:', duration);
 
     // 1. Upload the file to the audio bucket
+    console.log('Attempting to upload file to bucket...');
     const fileUpload = await storage.createFile(
       AUDIO_BUCKET_ID,
       ID.unique(),
@@ -62,15 +77,17 @@ export const uploadAudioFile = async (
       undefined, // permissions
       onProgress
     );
+    console.log('File upload successful:', fileUpload);
 
     // 2. Create a database entry linking to this file
+    console.log('Creating database entry...');
     const audioRecord = await database.createDocument(
       config.db,
       config.col.audioFiles,
       ID.unique(),
       {
         title: title,
-        sectionId: sectionId,
+        sectionId: [sectionId], // Wrap sectionId in an array since it's a relationship field
         fileId: fileUpload.$id,
         fileName: fileName,
         fileSize: fileInfo.size,
@@ -78,13 +95,19 @@ export const uploadAudioFile = async (
         duration,
       }
     );
+    console.log('Database entry created:', audioRecord);
 
     return {
       fileUpload,
       audioRecord,
     };
-  } catch (error) {
-    console.error('Error uploading audio file:', error);
+  } catch (error: any) {
+    console.error('=== Upload Error Details ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Error details:', JSON.stringify(error, null, 2));
+    console.error('Bucket ID used:', AUDIO_BUCKET_ID);
+    console.error('==========================');
     throw error;
   }
 };

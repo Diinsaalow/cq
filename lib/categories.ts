@@ -40,18 +40,3 @@ export const getCategoriesWithSections = async () => {
     throw error;
   }
 };
-
-// // Get sections for a specific category
-// export const getSectionsByCategory = async (categoryId: string) => {
-//   try {
-//     const sections = await database.listDocuments(
-//       config.db,
-//       config.col.sections,
-//       [Query.equal('categoryId', categoryId.), Query.orderAsc('order')]
-//     );
-//     return sections.documents;
-//   } catch (error) {
-//     console.error('Error getting sections by category:', error);
-//     throw error;
-//   }
-// };
