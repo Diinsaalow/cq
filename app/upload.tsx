@@ -32,6 +32,9 @@ import type { CategoryData } from '../types';
 import SectionSelector from './components/SectionSelector';
 import { formatFileSize } from '../utils/utils';
 import { uploadAudioFile } from '../lib/storage';
+import LoadingState from '../components/LoadingState';
+import ErrorState from '../components/ErrorState';
+import OptimizedImage from '../components/OptimizedImage';
 
 // Helper: map backend category/section to local type
 const mapCategory = (cat: any) => ({
@@ -58,30 +61,35 @@ export default function UploadScreen() {
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Log config for debugging
   useEffect(() => {
     logConfig();
   }, []);
 
+  const fetchCategories = async () => {
+    setLoadingCategories(true);
+    setError(null);
+    try {
+      const data = await getCategoriesWithSections();
+      console.log('Categories with sections', data);
+      setCategories(data.map(mapCategory));
+    } catch (e) {
+      console.error('Error fetching categories:', e);
+      setError('Failed to load categories. Please try again.');
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchCategories = async () => {
-      setLoadingCategories(true);
-      try {
-        const data = await getCategoriesWithSections();
-        console.log('Categories with sections', data);
-        setCategories(data.map(mapCategory));
-      } catch (e) {
-        Alert.alert('Error', 'Failed to load categories');
-      } finally {
-        setLoadingCategories(false);
-      }
-    };
     fetchCategories();
   }, []);
 
   const handlePickAudio = async () => {
     try {
+      setError(null);
       const result = await DocumentPicker.getDocumentAsync({
         type: ['audio/*'],
         copyToCacheDirectory: true,
@@ -100,7 +108,7 @@ export default function UploadScreen() {
 
       // Check file size (limit to 50MB for example)
       if (fileSize && fileSize > 50 * 1024 * 1024) {
-        Alert.alert('File too large', 'Please select a file smaller than 50MB');
+        setError('File too large. Please select a file smaller than 50MB');
         return;
       }
 
@@ -112,7 +120,7 @@ export default function UploadScreen() {
       });
     } catch (error) {
       console.error('Error picking audio file:', error);
-      Alert.alert('Error', 'Could not select the audio file');
+      setError('Could not select the audio file. Please try again.');
     }
   };
 
@@ -122,22 +130,23 @@ export default function UploadScreen() {
 
   const handleUpload = async () => {
     if (!title.trim()) {
-      Alert.alert('Missing Information', 'Please enter a title for the audio');
+      setError('Please enter a title for the audio');
       return;
     }
 
     if (!selectedSection) {
-      Alert.alert('Missing Information', 'Please select a section');
+      setError('Please select a section');
       return;
     }
 
     if (!selectedFile) {
-      Alert.alert('Missing File', 'Please select an audio file to upload');
+      setError('Please select an audio file to upload');
       return;
     }
 
     setUploading(true);
     setProgress(0);
+    setError(null);
     try {
       await uploadAudioFile(
         selectedFile.uri,
@@ -145,9 +154,23 @@ export default function UploadScreen() {
         title,
         selectedSection,
         (progress) => {
-          if (progress && progress.progress) {
-            setProgress(Math.round(progress.progress * 100));
-          }
+          console.log('Progress callback received:', progress);
+          // Calculate progress percentage based on chunks
+          const progressPercentage =
+            progress.chunksTotal > 0
+              ? Math.round(
+                  (progress.chunksUploaded / progress.chunksTotal) * 100
+                )
+              : Math.round(progress.progress * 100);
+
+          console.log('Upload progress:', {
+            chunksUploaded: progress.chunksUploaded,
+            chunksTotal: progress.chunksTotal,
+            progress: progress.progress,
+            calculatedPercentage: progressPercentage,
+          });
+
+          setProgress(progressPercentage);
         }
       );
       setUploading(false);
@@ -163,18 +186,43 @@ export default function UploadScreen() {
               setSelectedSection(null);
               setSelectedFile(null);
               setProgress(0);
+              setError(null);
             },
           },
         ]
       );
     } catch (error) {
+      console.error('Upload error:', error);
       setUploading(false);
-      Alert.alert(
-        'Upload Failed',
-        'There was an error uploading the audio file.'
-      );
+      setError('Failed to upload audio file. Please try again.');
     }
   };
+
+  if (loadingCategories) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <LoadingState message="Loading categories..." />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            setError(null);
+            if (uploading) {
+              handleUpload();
+            } else {
+              fetchCategories();
+            }
+          }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -436,21 +484,27 @@ export default function UploadScreen() {
           )}
         </View>
 
-        {/* Progress Bar (only shown when uploading) */}
+        {/* Upload Progress */}
         {uploading && (
-          <View style={styles.progressContainer}>
+          <View style={styles.uploadProgress}>
             <View
-              style={[styles.progressBar, { backgroundColor: colors.shadow }]}
+              style={[
+                styles.progressBar,
+                { backgroundColor: colors.lightGray },
+              ]}
             >
               <View
                 style={[
                   styles.progressFill,
-                  { backgroundColor: colors.primary },
+                  {
+                    width: `${progress}%`,
+                    backgroundColor: colors.primary,
+                  },
                 ]}
               />
             </View>
             <Text style={[styles.progressText, { color: colors.textLight }]}>
-              {progress}% Uploaded
+              Uploading... {progress}%
             </Text>
           </View>
         )}
@@ -600,7 +654,7 @@ const styles = StyleSheet.create({
   removeFileButton: {
     padding: 8,
   },
-  progressContainer: {
+  uploadProgress: {
     marginBottom: 20,
   },
   progressBar: {
@@ -615,7 +669,7 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 14,
-    textAlign: 'right',
+    textAlign: 'center',
   },
   uploadButton: {
     borderRadius: 12,

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,10 @@ import getColors from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { MOCK_DATA } from '../data/mockData';
 import { useAudio } from '../contexts/AudioContext';
+import LoadingState from '../components/LoadingState';
+import ErrorState from '../components/ErrorState';
+import OptimizedImage from '../components/OptimizedImage';
+import { cacheAudioFile, preloadAudio } from '../utils/cache';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +33,7 @@ export default function PlayerScreen() {
   const audioIndex = Number(audioIndexParam) || 0;
   const { theme } = useTheme();
   const colors = getColors(theme);
+  const [error, setError] = useState<string | null>(null);
 
   // Get audio context
   const {
@@ -52,56 +57,117 @@ export default function PlayerScreen() {
 
   const audioFiles = section?.audioFiles || [];
 
-  // Syncing the player screen with the current context state
+  // Preload next audio file
   useEffect(() => {
-    // If this is a new section or the user manually navigated to a different track
-    if (
-      section &&
-      (sectionId !== currentSectionId || audioIndex !== currentAudioIndex)
-    ) {
-      const audioToPlay = audioFiles[audioIndex];
-      if (audioToPlay) {
-        playSound(audioToPlay, sectionId as string, audioIndex);
+    if (currentAudioIndex < audioFiles.length - 1) {
+      const nextAudio = audioFiles[currentAudioIndex + 1];
+      if (nextAudio?.url) {
+        preloadAudio(nextAudio.url);
       }
     }
+  }, [currentAudioIndex, audioFiles]);
+
+  // Syncing the player screen with the current context state
+  useEffect(() => {
+    const initializeAudio = async () => {
+      try {
+        setError(null);
+        // If this is a new section or the user manually navigated to a different track
+        if (
+          section &&
+          (sectionId !== currentSectionId || audioIndex !== currentAudioIndex)
+        ) {
+          const audioToPlay = audioFiles[audioIndex];
+          if (audioToPlay) {
+            // Cache the audio file before playing
+            const cachedUrl = await cacheAudioFile(
+              audioToPlay.url,
+              `${audioToPlay.id}.mp3`
+            );
+            await playSound(
+              { ...audioToPlay, url: cachedUrl },
+              sectionId as string,
+              audioIndex
+            );
+          }
+        }
+      } catch (err) {
+        console.error('Error initializing audio:', err);
+        setError('Failed to load audio. Please try again.');
+      }
+    };
+
+    initializeAudio();
   }, [sectionId, audioIndex]);
 
   const handlePlayPause = async () => {
-    if (isPlaying) {
-      await pauseSound();
-    } else {
-      await resumeSound();
+    try {
+      setError(null);
+      if (isPlaying) {
+        await pauseSound();
+      } else {
+        await resumeSound();
+      }
+    } catch (err) {
+      console.error('Error toggling playback:', err);
+      setError('Failed to control playback. Please try again.');
     }
   };
 
   const handlePrevious = useCallback(async () => {
-    if (currentAudioIndex > 0) {
-      const prevAudio = audioFiles[currentAudioIndex - 1];
-      if (prevAudio) {
-        await playSound(prevAudio, sectionId as string, currentAudioIndex - 1);
+    try {
+      setError(null);
+      if (currentAudioIndex > 0) {
+        const prevAudio = audioFiles[currentAudioIndex - 1];
+        if (prevAudio) {
+          const cachedUrl = await cacheAudioFile(
+            prevAudio.url,
+            `${prevAudio.id}.mp3`
+          );
+          await playSound(
+            { ...prevAudio, url: cachedUrl },
+            sectionId as string,
+            currentAudioIndex - 1
+          );
+        }
       }
+    } catch (err) {
+      console.error('Error playing previous track:', err);
+      setError('Failed to play previous track. Please try again.');
     }
   }, [currentAudioIndex, audioFiles, sectionId, playSound]);
 
   const handleNext = useCallback(async () => {
-    if (currentAudioIndex < audioFiles.length - 1) {
-      const nextAudio = audioFiles[currentAudioIndex + 1];
-      if (nextAudio) {
-        await playSound(nextAudio, sectionId as string, currentAudioIndex + 1);
+    try {
+      setError(null);
+      if (currentAudioIndex < audioFiles.length - 1) {
+        const nextAudio = audioFiles[currentAudioIndex + 1];
+        if (nextAudio) {
+          const cachedUrl = await cacheAudioFile(
+            nextAudio.url,
+            `${nextAudio.id}.mp3`
+          );
+          await playSound(
+            { ...nextAudio, url: cachedUrl },
+            sectionId as string,
+            currentAudioIndex + 1
+          );
+        }
       }
+    } catch (err) {
+      console.error('Error playing next track:', err);
+      setError('Failed to play next track. Please try again.');
     }
   }, [currentAudioIndex, audioFiles, sectionId, playSound]);
 
   // Register next/previous handlers
   useEffect(() => {
     if (section) {
-      // Set the ref handlers for next/previous
       nextTrackRef.current = handleNext;
       previousTrackRef.current = handlePrevious;
     }
 
     return () => {
-      // Cleanup
       nextTrackRef.current = async () => {};
       previousTrackRef.current = async () => {};
     };
@@ -117,7 +183,23 @@ export default function PlayerScreen() {
   if (!section) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.textDark }}>Section not found</Text>
+        <ErrorState message="Section not found" />
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <LoadingState message="Loading audio..." />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ErrorState message={error} onRetry={handlePlayPause} />
       </View>
     );
   }
@@ -147,7 +229,11 @@ export default function PlayerScreen() {
 
       {/* Album Art */}
       <View style={styles.albumArtContainer}>
-        <Image source={{ uri: section.imageUrl }} style={styles.albumArt} />
+        <OptimizedImage
+          source={{ uri: section.imageUrl }}
+          style={styles.albumArt}
+          resizeMode="cover"
+        />
       </View>
 
       {/* Track Info */}

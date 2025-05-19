@@ -77,7 +77,19 @@ export const uploadAudioFile = async (
       ID.unique(),
       file,
       undefined, // permissions
-      onProgress
+      (progress) => {
+        console.log('Raw progress from Appwrite:', progress);
+        if (onProgress) {
+          // Ensure we pass the complete UploadProgress object
+          onProgress({
+            $id: progress.$id || '',
+            sizeUploaded: progress.sizeUploaded || 0,
+            chunksTotal: progress.chunksTotal || 1,
+            chunksUploaded: progress.chunksUploaded || 0,
+            progress: progress.progress || 0,
+          });
+        }
+      }
     );
     console.log('File upload successful:', fileUpload);
 
