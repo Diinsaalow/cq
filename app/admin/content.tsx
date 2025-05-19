@@ -8,6 +8,10 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Platform,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import getColors from '../../constants/Colors';
@@ -20,6 +24,8 @@ import {
   Edit,
   Trash,
   ChevronRight,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react-native';
 import { database, config } from '../../lib/appwrite';
 import { Query, Models } from 'react-native-appwrite';
@@ -38,6 +44,13 @@ export default function ContentManagementScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newCategoryTitle, setNewCategoryTitle] = useState('');
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     fetchCategories();
@@ -94,14 +107,43 @@ export default function ContentManagementScreen() {
   };
 
   const handleAddCategory = () => {
-    Alert.alert('Add Category', 'This feature will be implemented soon');
+    setShowAddModal(true);
+    setNewCategoryTitle('');
+    setAddError('');
+  };
+
+  const handleSubmitAddCategory = async () => {
+    setAddError('');
+    if (!newCategoryTitle.trim()) {
+      setAddError('Category title is required');
+      return;
+    }
+
+    setAddLoading(true);
+    try {
+      await database.createDocument(
+        config.db,
+        config.col.categories,
+        'unique()',
+        {
+          title: newCategoryTitle.trim(),
+        }
+      );
+      setShowAddModal(false);
+      fetchCategories();
+    } catch (err) {
+      console.error('Error adding category:', err);
+      setAddError('Failed to add category');
+    } finally {
+      setAddLoading(false);
+    }
   };
 
   const handleEditCategory = (categoryId: string) => {
     Alert.alert('Edit Category', `Edit category ${categoryId}`);
   };
 
-  const handleDeleteCategory = (categoryId: string) => {
+  const handleDeleteCategory = async (categoryId: string) => {
     Alert.alert(
       'Delete Category',
       'Are you sure you want to delete this category? This will also delete all sections and audio files within it.',
@@ -110,9 +152,68 @@ export default function ContentManagementScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            // Delete logic will be implemented here
-            Alert.alert('Delete', `Category ${categoryId} will be deleted`);
+          onPress: async () => {
+            try {
+              setDeletingCategoryId(categoryId);
+
+              // First, get all sections in this category
+              const sectionsResponse = await database.listDocuments(
+                config.db,
+                config.col.sections,
+                [Query.equal('categoryId', categoryId)]
+              );
+
+              // Delete all sections and their associated files
+              const deletePromises = sectionsResponse.documents.map(
+                async (section) => {
+                  // Delete section's audio files if any
+                  if (section.audioFiles && section.audioFiles.length > 0) {
+                    await Promise.all(
+                      section.audioFiles.map((fileId: string) =>
+                        database.deleteDocument(
+                          config.db,
+                          config.col.audioFiles,
+                          fileId
+                        )
+                      )
+                    );
+                  }
+                  // Delete the section
+                  return database.deleteDocument(
+                    config.db,
+                    config.col.sections,
+                    section.$id
+                  );
+                }
+              );
+
+              // Wait for all sections and files to be deleted
+              await Promise.all(deletePromises);
+
+              // Finally, delete the category
+              await database.deleteDocument(
+                config.db,
+                config.col.categories,
+                categoryId
+              );
+
+              // Refresh the categories list
+              await fetchCategories();
+
+              // Show success message
+              Alert.alert(
+                'Success',
+                'Category and all its contents have been deleted successfully.'
+              );
+            } catch (err) {
+              console.error('Error deleting category:', err);
+              Alert.alert(
+                'Error',
+                'Failed to delete category. Please try again.'
+              );
+            } finally {
+              setDeletingCategoryId(null);
+            }
           },
         },
       ]
@@ -126,26 +227,34 @@ export default function ContentManagementScreen() {
   const renderSkeleton = () => (
     <View style={styles.skeletonContainer}>
       {[1, 2, 3].map((i) => (
-        <View
+        <Animated.View
           key={i}
-          style={[styles.skeletonItem, { backgroundColor: colors.lightGray }]}
+          style={[
+            styles.skeletonItem,
+            { backgroundColor: colors.lightGray },
+            {
+              opacity: fadeAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.3, 0.7],
+              }),
+            },
+          ]}
         >
-          <View style={styles.skeletonIcon} />
+          <View
+            style={[styles.skeletonIcon, { backgroundColor: colors.shadow }]}
+          />
           <View style={styles.skeletonContent}>
             <View
-              style={[
-                styles.skeletonTitle,
-                { backgroundColor: colors.lightGray },
-              ]}
+              style={[styles.skeletonTitle, { backgroundColor: colors.shadow }]}
             />
             <View
               style={[
                 styles.skeletonSubtitle,
-                { backgroundColor: colors.lightGray },
+                { backgroundColor: colors.shadow },
               ]}
             />
           </View>
-        </View>
+        </Animated.View>
       ))}
     </View>
   );
@@ -155,7 +264,10 @@ export default function ContentManagementScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.white }]}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[
+            styles.backButton,
+            { backgroundColor: `${colors.textDark}10` },
+          ]}
           onPress={() => router.back()}
         >
           <ArrowLeft color={colors.textDark} size={24} />
@@ -163,12 +275,7 @@ export default function ContentManagementScreen() {
         <Text style={[styles.headerTitle, { color: colors.textDark }]}>
           Manage Content
         </Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: colors.primary }]}
-          onPress={handleAddCategory}
-        >
-          <Plus color={colors.white} size={20} />
-        </TouchableOpacity>
+        <View style={styles.headerRight} />
       </View>
 
       {/* Content */}
@@ -184,7 +291,10 @@ export default function ContentManagementScreen() {
               style={[styles.retryButton, { backgroundColor: colors.primary }]}
               onPress={fetchCategories}
             >
-              <Text style={{ color: colors.white }}>Retry</Text>
+              <RefreshCw size={16} color={colors.white} />
+              <Text style={{ color: colors.white, fontWeight: '600' }}>
+                Retry
+              </Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -216,7 +326,9 @@ export default function ContentManagementScreen() {
                     ]}
                     onPress={handleAddCategory}
                   >
-                    <Text style={{ color: colors.white }}>Add Category</Text>
+                    <Text style={{ color: colors.white, fontWeight: '600' }}>
+                      Add Category
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -252,38 +364,42 @@ export default function ContentManagementScreen() {
                           </Text>
                           <Text
                             style={[
-                              styles.categoryMeta,
+                              styles.categorySubtitle,
                               { color: colors.textLight },
                             ]}
                           >
                             {category.sectionsCount} sections
                           </Text>
                         </View>
-                        <ChevronRight size={20} color={colors.textLight} />
                       </TouchableOpacity>
-                      <View
-                        style={[
-                          styles.categoryActions,
-                          { borderTopColor: colors.shadow },
-                        ]}
-                      >
+                      <View style={styles.categoryActions}>
                         <TouchableOpacity
                           style={[
                             styles.actionButton,
-                            { backgroundColor: colors.accent },
+                            { backgroundColor: `${colors.primary}15` },
                           ]}
                           onPress={() => handleEditCategory(category.$id)}
                         >
-                          <Edit size={16} color={colors.white} />
+                          <Edit size={18} color={colors.primary} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[
                             styles.actionButton,
-                            { backgroundColor: '#EF4444' },
+                            { backgroundColor: `${colors.accent}15` },
+                            deletingCategoryId === category.$id &&
+                              styles.actionButtonDisabled,
                           ]}
                           onPress={() => handleDeleteCategory(category.$id)}
+                          disabled={deletingCategoryId === category.$id}
                         >
-                          <Trash size={16} color={colors.white} />
+                          {deletingCategoryId === category.$id ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={colors.accent}
+                            />
+                          ) : (
+                            <Trash size={18} color={colors.accent} />
+                          )}
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -294,6 +410,73 @@ export default function ContentManagementScreen() {
           </ScrollView>
         )}
       </View>
+
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={handleAddCategory}
+      >
+        <Plus color={colors.white} size={24} />
+      </TouchableOpacity>
+
+      {/* Add Category Modal */}
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View
+            style={[styles.modalContainer, { backgroundColor: colors.white }]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.textDark }]}>
+              Add Category
+            </Text>
+            <Text style={[styles.modalLabel, { color: colors.textLight }]}>
+              Title *
+            </Text>
+            <TextInput
+              style={[
+                styles.modalInput,
+                { color: colors.textDark, borderColor: colors.shadow },
+              ]}
+              placeholder="Category title"
+              placeholderTextColor={colors.textLight}
+              value={newCategoryTitle}
+              onChangeText={setNewCategoryTitle}
+              autoFocus
+            />
+            {addError ? (
+              <Text style={styles.modalError}>{addError}</Text>
+            ) : null}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleSubmitAddCategory}
+                disabled={addLoading}
+              >
+                <Text style={{ color: colors.white, fontWeight: '600' }}>
+                  {addLoading ? 'Adding...' : 'Add Category'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.accent }]}
+                onPress={() => setShowAddModal(false)}
+                disabled={addLoading}
+              >
+                <Text style={{ color: colors.white }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -306,86 +489,85 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
     elevation: 2,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  addButton: {
-    padding: 10,
-    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  headerRight: {
+    width: 40,
   },
   contentContainer: {
     flex: 1,
+    padding: 20,
   },
   scrollContainer: {
     flex: 1,
   },
   sectionContainer: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 15,
     marginBottom: 24,
   },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+    opacity: 0.7,
+  },
   skeletonContainer: {
-    padding: 20,
+    gap: 12,
   },
   skeletonItem: {
+    borderRadius: 16,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    height: 80,
   },
   skeletonIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    marginRight: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    marginRight: 16,
   },
   skeletonContent: {
     flex: 1,
+    gap: 8,
   },
   skeletonTitle: {
-    height: 16,
+    height: 20,
     width: '60%',
     borderRadius: 4,
-    marginBottom: 8,
   },
   skeletonSubtitle: {
-    height: 12,
+    height: 16,
     width: '40%',
     borderRadius: 4,
   },
   errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    justifyContent: 'center',
+    padding: 40,
   },
   errorText: {
     fontSize: 16,
@@ -393,62 +575,69 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
   },
   emptyState: {
-    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderStyle: 'dashed',
+    padding: 40,
     borderRadius: 16,
-    marginVertical: 24,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    marginTop: 20,
   },
   emptyStateText: {
     fontSize: 16,
-    marginVertical: 16,
+    marginTop: 16,
+    marginBottom: 24,
+    textAlign: 'center',
   },
   emptyStateButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
   },
   categoriesList: {
-    marginTop: 16,
+    gap: 12,
   },
   categoryItem: {
     borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  categoryContent: {
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  categoryContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   categoryIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 16,
   },
   categoryDetails: {
@@ -459,17 +648,89 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 4,
   },
-  categoryMeta: {
+  categorySubtitle: {
     fontSize: 14,
+    opacity: 0.7,
   },
   categoryActions: {
     flexDirection: 'row',
-    borderTopWidth: 1,
+    gap: 8,
   },
   actionButton: {
-    flex: 1,
-    padding: 16,
-    alignItems: 'center',
+    padding: 8,
+    borderRadius: 8,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    borderRadius: 18,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 18,
+    textAlign: 'center',
+  },
+  modalLabel: {
+    fontSize: 14,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  modalError: {
+    color: 'red',
+    marginTop: 8,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
 });
