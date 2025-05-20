@@ -8,19 +8,20 @@ import {
   Modal,
   ScrollView,
   Platform,
+  Animated,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { database, config } from '../../lib/appwrite';
 import getColors from '../../constants/Colors';
 import { useTheme } from '../../contexts/ThemeContext';
-import { User as UserIcon, Shield } from 'lucide-react-native';
+import { User as UserIcon, Shield, Plus } from 'lucide-react-native';
 
 interface UserDoc {
   $id: string;
-  username: string;
+  email: string;
   role: string;
-  profileImg?: string;
+  authId: string;
 }
 
 export default function ManageUsersScreen() {
@@ -37,16 +38,43 @@ export default function ManageUsersScreen() {
   const [success, setSuccess] = useState('');
   const [users, setUsers] = useState<UserDoc[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ visible: false, message: '', type: 'success' });
+  const fadeAnim = React.useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    if (refreshing && users.length === 0) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(fadeAnim, {
+            toValue: 0.7,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 0.3,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      fadeAnim.setValue(0.3);
+    }
+  }, [refreshing, users.length]);
+
   async function fetchUsers() {
     setRefreshing(true);
     try {
       const res = await database.listDocuments(config.db, config.col.users);
-      setUsers(res.documents as UserDoc[]);
+      setUsers(res.documents as unknown as UserDoc[]);
     } catch (e) {
       setError('Failed to fetch users');
     } finally {
@@ -59,28 +87,80 @@ export default function ManageUsersScreen() {
     return null;
   }
 
-  const handleAddUser = async () => {
-    setError('');
-    setSuccess('');
-    if (!email.trim() || !password.trim()) {
-      setError('Email and password are required');
-      return;
-    }
-    setLoading(true);
-    try {
-      await signup(email, password, newRole);
-      setSuccess('User created successfully!');
-      setEmail('');
-      setPassword('');
-      setNewRole('user');
-      setShowModal(false);
-      fetchUsers();
-    } catch (err: any) {
-      setError(err.message || 'Failed to create user');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleAddUser = async () => {
+  //   setError('');
+  //   setSuccess('');
+  //   if (!email.trim() || !password.trim()) {
+  //     setToast({
+  //       visible: true,
+  //       message: 'Email and password are required',
+  //       type: 'error',
+  //     });
+  //     return;
+  //   }
+  //   setLoading(true);
+  //   try {
+  //     await signup(email, password, newRole);
+  //     setToast({
+  //       visible: true,
+  //       message: 'User created successfully!',
+  //       type: 'success',
+  //     });
+  //     setEmail('');
+  //     setPassword('');
+  //     setNewRole('user');
+  //     setShowModal(false);
+  //     fetchUsers();
+  //   } catch (err: any) {
+  //     setToast({
+  //       visible: true,
+  //       message: err.message || 'Failed to create user',
+  //       type: 'error',
+  //     });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const renderSkeleton = () => (
+    <View style={{ gap: 16 }}>
+      {[1, 2, 3].map((i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.card,
+            {
+              backgroundColor: '#F5F7FA',
+              opacity: fadeAnim,
+              borderColor: '#eee',
+              shadowColor: '#eee',
+            },
+          ]}
+        >
+          <View style={styles.avatarContainer} />
+          <View style={styles.userInfo}>
+            <View
+              style={{
+                height: 18,
+                width: 120,
+                backgroundColor: '#e0e0e0',
+                borderRadius: 8,
+                marginBottom: 8,
+              }}
+            />
+            <View
+              style={{
+                height: 14,
+                width: 60,
+                backgroundColor: '#e0e0e0',
+                borderRadius: 8,
+              }}
+            />
+          </View>
+        </Animated.View>
+      ))}
+    </View>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -93,70 +173,81 @@ export default function ManageUsersScreen() {
         <Text style={[styles.headerTitle, { color: colors.textDark }]}>
           Manage Users
         </Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/signup')}
-        >
-          <Text style={styles.addButtonText}>+ Add User</Text>
-        </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.listContainer}>
-        {users.map((user, idx) => (
-          <View
-            key={user.$id}
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.white,
-                shadowColor: colors.shadow,
-                borderColor: colors.shadow,
-              },
-            ]}
-          >
-            <View style={styles.avatarContainer}>
-              <UserIcon size={32} color={colors.primary} />
-            </View>
-            <View style={styles.userInfo}>
-              <Text style={[styles.username, { color: colors.textDark }]}>
-                {user.email}
-              </Text>
-              <View style={styles.roleBadge}>
-                <Shield
-                  size={14}
-                  color={
-                    user.role === 'admin' ? colors.primary : colors.textLight
-                  }
-                />
-                <Text
-                  style={[
-                    styles.roleText,
-                    {
-                      color:
+        {refreshing && users.length === 0 ? (
+          renderSkeleton()
+        ) : (
+          <>
+            {users.map((user, idx) => (
+              <View
+                key={user.$id}
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: colors.white,
+                    shadowColor: colors.shadow,
+                    borderColor: colors.shadow,
+                  },
+                ]}
+              >
+                <View style={styles.avatarContainer}>
+                  <UserIcon size={32} color={colors.primary} />
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={[styles.username, { color: colors.textDark }]}>
+                    {user.email}
+                  </Text>
+                  <View style={styles.roleBadge}>
+                    <Shield
+                      size={14}
+                      color={
                         user.role === 'admin'
                           ? colors.primary
-                          : colors.textLight,
-                    },
-                  ]}
-                >
-                  {user.role}
-                </Text>
+                          : colors.textLight
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.roleText,
+                        {
+                          color:
+                            user.role === 'admin'
+                              ? colors.primary
+                              : colors.textLight,
+                        },
+                      ]}
+                    >
+                      {user.role}
+                    </Text>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
-        ))}
-        {users.length === 0 && !refreshing && (
-          <Text
-            style={{
-              color: colors.textLight,
-              textAlign: 'center',
-              marginTop: 40,
-            }}
-          >
-            No users found.
-          </Text>
+            ))}
+            {users.length === 0 && !refreshing && (
+              <Text
+                style={{
+                  color: colors.textLight,
+                  textAlign: 'center',
+                  marginTop: 40,
+                }}
+              >
+                No users found.
+              </Text>
+            )}
+          </>
         )}
       </ScrollView>
-      <Modal
+
+      {/* Floating Action Button */}
+      {/* <TouchableOpacity
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={() => setShowModal(true)}
+      >
+        <Plus color={colors.white} size={24} />
+      </TouchableOpacity> */}
+
+      {/* <Modal
         visible={showModal}
         animationType="slide"
         transparent
@@ -218,8 +309,6 @@ export default function ManageUsersScreen() {
                 <Text style={{ color: colors.primary }}>Admin</Text>
               </TouchableOpacity>
             </View>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            {success ? <Text style={styles.success}>{success}</Text> : null}
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[
@@ -244,6 +333,12 @@ export default function ManageUsersScreen() {
           </View>
         </View>
       </Modal>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={() => setToast({ ...toast, visible: false })}
+      /> */}
     </View>
   );
 }
@@ -261,16 +356,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
-  },
-  addButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
   listContainer: {
     padding: 20,
@@ -390,5 +475,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });

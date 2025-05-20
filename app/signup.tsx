@@ -27,7 +27,9 @@ export default function SignupScreen() {
   const { signup, role, isAuthenticated, loading } = useAuth();
   const { theme } = useTheme();
   const colors = getColors(theme);
-
+  console.log('current role', role);
+  console.log('current isAuthenticated', isAuthenticated);
+  const isAdmin = role === 'admin';
   // Wait for auth state to load before making redirect decision
   if (loading) {
     return null;
@@ -36,7 +38,7 @@ export default function SignupScreen() {
     router.replace('/login');
     return null;
   }
-  if (role !== 'admin') {
+  if (!isAdmin) {
     router.replace('/admin');
     return null;
   }

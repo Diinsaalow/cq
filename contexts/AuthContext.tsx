@@ -120,18 +120,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-      // 1. Check if email already exists in custom collection
-      const existingUsers = await database.listDocuments(
-        config.db,
-        config.col.users,
-        [Query.equal('email', email)]
-      );
-      if (existingUsers.documents.length > 0) {
-        throw new Error('Email already exists');
+      // 1. Try to create user in Appwrite Auth
+      let authUser;
+      try {
+        authUser = await account.create(ID.unique(), email, password);
+      } catch (err: any) {
+        if (err && err.message && err.message.includes('already exists')) {
+          throw new Error('Email already exists');
+        }
+        throw err;
       }
-      // 2. Create user in Appwrite Auth
-      const authUser = await account.create(ID.unique(), email, password);
-      // 3. Create user doc in custom collection with authId and email
+      // 2. Create user doc in custom collection with authId and email
       await database.createDocument(config.db, config.col.users, ID.unique(), {
         email,
         authId: authUser.$id,

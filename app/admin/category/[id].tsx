@@ -28,7 +28,7 @@ import {
   Music,
 } from 'lucide-react-native';
 import { database, config } from '../../../lib/appwrite';
-import { Query } from 'react-native-appwrite';
+import { ID, Query } from 'react-native-appwrite';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImageFile } from '../../../lib/storage';
@@ -131,26 +131,41 @@ export default function CategoryDetailScreen() {
     }
     setAddLoading(true);
     try {
+      console.log('Adding section with:', {
+        title: newSectionTitle,
+        categoryId: typeof id === 'string' ? id : id[0],
+        newSectionImageUri,
+      });
       let imageUrl = '';
       if (newSectionImageUri) {
         // Extract file name from URI
         const fileName = newSectionImageUri.split('/').pop() || 'image.jpg';
         imageUrl = await uploadImageFile(newSectionImageUri, fileName);
+        console.log('Image uploaded, imageUrl:', imageUrl);
       }
-      await database.createDocument(
+      const uniqueId = ID.unique();
+      console.log('Generated unique ID:', uniqueId);
+      const doc = await database.createDocument(
         config.db,
         config.col.sections,
-        'unique()',
+        uniqueId,
         {
           title: newSectionTitle,
-          categoryId: [typeof id === 'string' ? id : id[0]],
+          categoryId: typeof id === 'string' ? id : id[0],
           imageUrl,
         }
       );
+      console.log('Section created:', doc);
       setShowAddModal(false);
       fetchCategoryAndSections();
-    } catch (err) {
-      setAddError('Failed to add section');
+    } catch (err: any) {
+      console.error('Failed to add section:', err);
+      setAddError(
+        'Failed to add section: ' +
+          (err && typeof err === 'object' && 'message' in err
+            ? (err as any).message
+            : JSON.stringify(err))
+      );
     } finally {
       setAddLoading(false);
     }

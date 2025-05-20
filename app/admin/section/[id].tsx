@@ -25,14 +25,33 @@ import { database, config, storage } from '../../../lib/appwrite';
 import { Query } from 'react-native-appwrite';
 import { formatFileSize } from '../../../utils/utils';
 
+// Define types based on your Appwrite structure
+interface SectionDoc {
+  $id: string;
+  title: string;
+  categoryId: string[]; // Relationship is always an array
+  imageUrl?: string;
+}
+
+interface AudioDoc {
+  $id: string;
+  title: string;
+  sectionId: string[]; // Relationship is always an array
+  fileId: string;
+  fileName: string;
+  fileSize: number;
+  duration: number;
+  uploadedAt: string;
+}
+
 export default function SectionDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { theme } = useTheme();
   const colors = getColors(theme);
 
-  const [section, setSection] = useState(null);
-  const [audioFiles, setAudioFiles] = useState([]);
+  const [section, setSection] = useState<SectionDoc | null>(null);
+  const [audioFiles, setAudioFiles] = useState<AudioDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -47,21 +66,24 @@ export default function SectionDetailScreen() {
       const sectionData = await database.getDocument(
         config.db,
         config.col.sections,
-        id
+        typeof id === 'string' ? id : id[0]
       );
-      setSection(sectionData);
+      setSection(sectionData as unknown as SectionDoc);
 
       // Fetch audio files for this section
       const filesData = await database.listDocuments(
         config.db,
         config.col.audioFiles,
-        [Query.equal('sectionId', id), Query.orderDesc('$createdAt')]
+        [
+          Query.equal('sectionId', [typeof id === 'string' ? id : id[0]]),
+          Query.orderDesc('$createdAt'),
+        ]
       );
-      setAudioFiles(filesData.documents);
+      setAudioFiles(filesData.documents as unknown as AudioDoc[]);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching section data:', err);
-      setError('Failed to load section data');
+      setError('Failed to load section data' as any);
       setLoading(false);
     }
   };
@@ -70,11 +92,11 @@ export default function SectionDetailScreen() {
     router.push('/upload');
   };
 
-  const handleEditAudio = (audioId) => {
+  const handleEditAudio = (audioId: string) => {
     Alert.alert('Edit Audio', `Edit audio ${audioId}`);
   };
 
-  const handleDeleteAudio = (audioId) => {
+  const handleDeleteAudio = (audioId: string) => {
     Alert.alert(
       'Delete Audio',
       'Are you sure you want to delete this audio file?',
@@ -92,11 +114,11 @@ export default function SectionDetailScreen() {
     );
   };
 
-  const handleAudioPress = (audioId) => {
+  const handleAudioPress = (audioId: string) => {
     router.push(`/player?id=${audioId}`);
   };
 
-  const formatDuration = (seconds) => {
+  const formatDuration = (seconds: number) => {
     if (!seconds) return '00:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -136,9 +158,7 @@ export default function SectionDetailScreen() {
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.error }]}>
-            {error}
-          </Text>
+          <Text style={[styles.errorText, { color: '#ff3b30' }]}>{error}</Text>
           <TouchableOpacity
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={fetchSectionAndAudioFiles}
@@ -153,13 +173,6 @@ export default function SectionDetailScreen() {
             <Text style={[styles.sectionTitle, { color: colors.textDark }]}>
               {section?.title}
             </Text>
-            {section?.subtitle && (
-              <Text
-                style={[styles.sectionSubtitle, { color: colors.textLight }]}
-              >
-                {section.subtitle}
-              </Text>
-            )}
             <View style={styles.sectionMeta}>
               <View style={styles.metaItem}>
                 <Text style={[styles.metaValue, { color: colors.primary }]}>
@@ -278,7 +291,7 @@ export default function SectionDetailScreen() {
                       <TouchableOpacity
                         style={[
                           styles.actionButton,
-                          { backgroundColor: colors.error },
+                          { backgroundColor: '#ff3b30' },
                         ]}
                         onPress={() => handleDeleteAudio(audio.$id)}
                       >
