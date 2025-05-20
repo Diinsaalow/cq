@@ -1,82 +1,110 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { account, database, config } from '../lib/appwrite';
 import { Models, ID, Query } from 'react-native-appwrite';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type UserRole = 'admin' | 'user';
 
 type AuthContextType = {
   isAuthenticated: boolean;
   currentUser: Models.User<Models.Preferences> | null;
-  username: string | null;
+  email: string | null;
   role: UserRole;
   loading: boolean;
   error: string | null;
-  login: (username: string, password: string) => Promise<void>;
-  signup: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<UserRole>;
+  signup: (email: string, password: string, role?: UserRole) => Promise<void>;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] =
     useState<Models.User<Models.Preferences> | null>(null);
-  const [username, setUsername] = useState<string | null>('Developer');
-  const [role, setRole] = useState<UserRole>('admin'); // Default to admin during development
+  const [email, setEmail] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole>('user');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if user is already logged in
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
         setLoading(true);
-        // Skip Appwrite check during development
-        // const user = await account.get();
-        // setCurrentUser(user);
+        const user = await account.get();
+        setCurrentUser(user);
+        setEmail(user.email);
+        // Fetch user doc from custom collection by authId
+        const userDocs = await database.listDocuments(
+          config.db,
+          config.col.users,
+          [Query.equal('authId', user.$id)]
+        );
+        if (userDocs.documents.length > 0) {
+          setRole(userDocs.documents[0].role || 'user');
+        } else {
+          setRole('user');
+        }
         setIsAuthenticated(true);
-        setUsername('Developer');
-        setRole('admin'); // Default to admin during development
       } catch (err) {
-        // User is not authenticated
         setCurrentUser(null);
         setIsAuthenticated(false);
+        setEmail(null);
+        setRole('user');
       } finally {
         setLoading(false);
       }
     };
-
     checkAuthStatus();
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (email: string, password: string): Promise<UserRole> => {
     try {
       setLoading(true);
       setError(null);
 
-      // Find user in database
-      const userList = await database.listDocuments(
+      // First check if there's an active session and delete it
+      try {
+        const session = await account.getSession('current');
+        if (session) {
+          await account.deleteSession('current');
+        }
+      } catch (e) {
+        // No active session, continue with login
+      }
+
+      // Create new session
+      await account.createEmailPasswordSession(email, password);
+
+      // Get user info
+      const user = await account.get();
+      setCurrentUser(user);
+      setEmail(user.email);
+      setIsAuthenticated(true);
+
+      // Get user role from custom collection
+      const userDocs = await database.listDocuments(
         config.db,
         config.col.users,
-        [Query.equal('username', username)]
+        [Query.equal('authId', user.$id)]
       );
 
-      if (userList.documents.length === 0) {
-        throw new Error('User not found');
+      let userRole: UserRole = 'user';
+      if (userDocs.documents.length > 0) {
+        const userDoc = userDocs.documents[0];
+        userRole = userDoc.role as UserRole;
+        setRole(userRole);
+      } else {
+        setRole('user');
       }
 
-      // Verify password
-      const userData = userList.documents[0];
-      if (userData.password !== password) {
-        throw new Error('Invalid password');
-      }
+      // Store the role in AsyncStorage for persistence
+      await AsyncStorage.setItem('userRole', userRole);
 
-      // Set authenticated state
-      setUsername(username);
-      setRole(userData.role || 'user'); // Use role from database or default to 'user'
-      setIsAuthenticated(true);
+      return userRole;
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.message || 'Failed to login');
       throw err;
     } finally {
@@ -84,42 +112,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signup = async (username: string, password: string) => {
+  const signup = async (
+    email: string,
+    password: string,
+    userRole: UserRole = 'user'
+  ) => {
     try {
       setLoading(true);
       setError(null);
-
-      // Check if username already exists
+      // 1. Check if email already exists in custom collection
       const existingUsers = await database.listDocuments(
         config.db,
         config.col.users,
-        [Query.equal('username', username)]
+        [Query.equal('email', email)]
       );
-
       if (existingUsers.documents.length > 0) {
-        throw new Error('Username already exists');
+        throw new Error('Email already exists');
       }
-
-      // Create user in database
-      const user = await database.createDocument(
-        config.db,
-        config.col.users,
-        ID.unique(),
-        {
-          username,
-          password,
-          role: 'user', // Default role for new users
-        }
-      );
-
-      console.log('User: ', user);
-
-      // Set authenticated state
-      setUsername(username);
-      setRole('user');
+      // 2. Create user in Appwrite Auth
+      const authUser = await account.create(ID.unique(), email, password);
+      // 3. Create user doc in custom collection with authId and email
+      await database.createDocument(config.db, config.col.users, ID.unique(), {
+        email,
+        authId: authUser.$id,
+        role: userRole,
+      });
+      setEmail(email);
+      setRole(userRole);
       setIsAuthenticated(true);
     } catch (err: any) {
-      console.error('Signup error:', err);
       setError(err.message || 'Failed to create account');
       throw err;
     } finally {
@@ -130,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       setLoading(true);
-      setUsername(null);
+      setEmail(null);
       setRole('user');
       setIsAuthenticated(false);
     } catch (err: any) {
@@ -145,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         isAuthenticated,
         currentUser,
-        username,
+        email,
         role,
         loading,
         error,

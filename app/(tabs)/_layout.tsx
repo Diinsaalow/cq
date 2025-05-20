@@ -6,7 +6,7 @@ import { Home, Music, Upload, User } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function TabsLayout() {
-  const { username, role } = useAuth();
+  const { role } = useAuth();
   const { theme } = useTheme();
   const colors = getColors(theme);
 

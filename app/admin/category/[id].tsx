@@ -39,7 +39,7 @@ interface Section {
   $id: string;
   title: string;
   count?: number;
-  imageId?: string;
+  imageUrl?: string;
 }
 
 interface Category {
@@ -131,11 +131,11 @@ export default function CategoryDetailScreen() {
     }
     setAddLoading(true);
     try {
-      let imageId = '';
+      let imageUrl = '';
       if (newSectionImageUri) {
         // Extract file name from URI
         const fileName = newSectionImageUri.split('/').pop() || 'image.jpg';
-        imageId = await uploadImageFile(newSectionImageUri, fileName);
+        imageUrl = await uploadImageFile(newSectionImageUri, fileName);
       }
       await database.createDocument(
         config.db,
@@ -143,8 +143,8 @@ export default function CategoryDetailScreen() {
         'unique()',
         {
           title: newSectionTitle,
-          categoryId: typeof id === 'string' ? id : id[0],
-          imageId,
+          categoryId: [typeof id === 'string' ? id : id[0]],
+          imageUrl,
         }
       );
       setShowAddModal(false);

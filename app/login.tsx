@@ -16,29 +16,29 @@ import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff } from 'lucide-react-native';
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { login, error: authError } = useAuth();
   const { theme } = useTheme();
   const colors = getColors(theme);
 
   const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      setError('Username and password are required');
+    setError('');
+    if (!email.trim() || !password.trim()) {
+      setError('Email and password are required');
       return;
     }
-
     try {
       setIsLoading(true);
-      setError('');
-      await login(username, password);
-      router.replace('/');
+      const userRole = await login(email, password);
+      // Always redirect to home screen first
+      router.replace('/(tabs)');
     } catch (err: any) {
-      setError(err.message || 'Invalid username or password');
+      setError(err.message || 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +64,7 @@ export default function LoginScreen() {
         <View style={styles.form}>
           <View style={styles.inputContainer}>
             <Text style={[styles.label, { color: colors.textDark }]}>
-              Username
+              Email
             </Text>
             <TextInput
               style={[
@@ -75,11 +75,12 @@ export default function LoginScreen() {
                   color: colors.textDark,
                 },
               ]}
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Enter your username"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter your email"
               placeholderTextColor={colors.textLight}
               autoCapitalize="none"
+              keyboardType="email-address"
             />
           </View>
 
@@ -126,6 +127,7 @@ export default function LoginScreen() {
               {
                 backgroundColor: colors.primary,
                 shadowColor: colors.primary,
+                opacity: isLoading ? 0.7 : 1,
               },
             ]}
             onPress={handleLogin}

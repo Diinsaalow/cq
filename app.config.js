@@ -4,10 +4,10 @@ export default {
     slug: 'diinsaalow',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/icon.png',
+    icon: './assets/icons/icon.png',
     userInterfaceStyle: 'automatic',
     splash: {
-      image: './assets/splash.png',
+      image: './assets/icons/icon.png',
       resizeMode: 'contain',
       backgroundColor: '#ffffff',
     },
@@ -23,7 +23,7 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: './assets/adaptive-icon.png',
+        foregroundImage: './assets/icons/icon.png',
         backgroundColor: '#ffffff',
       },
       package: 'com.diinsaalow.app',
@@ -34,7 +34,7 @@ export default {
       ],
     },
     web: {
-      favicon: './assets/favicon.png',
+      favicon: './assets/icons/icon.png',
     },
     plugins: [
       [

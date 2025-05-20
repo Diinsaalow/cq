@@ -47,7 +47,7 @@ export default function AdminScreen() {
       title: 'Manage Users',
       icon: <Users size={24} color={colors.textDark} />,
       description: 'View and manage user accounts',
-      onPress: () => console.log('Manage users'),
+      onPress: () => router.push('/admin/users'),
     },
     {
       id: 'stats',
