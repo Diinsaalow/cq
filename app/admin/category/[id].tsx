@@ -27,25 +27,18 @@ import {
   ChevronRight,
   Music,
 } from 'lucide-react-native';
-import { database, config } from '../../../lib/appwrite';
-import { ID, Query } from 'react-native-appwrite';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImageFile } from '../../../lib/storage';
+import { Category, fetchCategoryById } from '../../services/categoryService';
+import {
+  Section,
+  fetchSectionsByCategoryId,
+  addSection,
+  deleteSection,
+} from '../../services/sectionService';
 
 const { width } = Dimensions.get('window');
-
-interface Section {
-  $id: string;
-  title: string;
-  count?: number;
-  imageUrl?: string;
-}
-
-interface Category {
-  $id: string;
-  title: string;
-}
 
 export default function CategoryDetailScreen() {
   const router = useRouter();
@@ -65,9 +58,12 @@ export default function CategoryDetailScreen() {
   );
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
+  const [deletingSectionId, setDeletingSectionId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
-    fetchCategoryAndSections();
+    loadCategoryAndSections();
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 500,
@@ -75,31 +71,23 @@ export default function CategoryDetailScreen() {
     }).start();
   }, [id]);
 
-  const fetchCategoryAndSections = async () => {
+  const loadCategoryAndSections = async () => {
     try {
       setLoading(true);
-      // Fetch category details
-      const categoryData = await database.getDocument(
-        config.db,
-        config.col.categories,
-        typeof id === 'string' ? id : id[0]
-      );
-      setCategory(categoryData as unknown as Category);
+      setError(null);
 
-      // Fetch sections for this category
-      const sectionsData = await database.listDocuments(
-        config.db,
-        config.col.sections,
-        [
-          Query.equal('categoryId', typeof id === 'string' ? id : id[0]),
-          Query.orderDesc('$createdAt'),
-        ]
-      );
-      setSections(sectionsData.documents as unknown as Section[]);
-      setLoading(false);
+      const categoryId = typeof id === 'string' ? id : id[0];
+      const [categoryData, sectionsData] = await Promise.all([
+        fetchCategoryById(categoryId),
+        fetchSectionsByCategoryId(categoryId),
+      ]);
+
+      setCategory(categoryData);
+      setSections(sectionsData);
     } catch (err) {
-      console.error('Error fetching category data:', err);
+      console.error('Error loading category data:', err);
       setError('Failed to load category data');
+    } finally {
       setLoading(false);
     }
   };
@@ -125,47 +113,19 @@ export default function CategoryDetailScreen() {
 
   const handleSubmitAddSection = async () => {
     setAddError('');
-    if (!newSectionTitle.trim()) {
-      setAddError('Section title is required');
-      return;
-    }
     setAddLoading(true);
     try {
-      console.log('Adding section with:', {
+      const categoryId = typeof id === 'string' ? id : id[0];
+      await addSection({
         title: newSectionTitle,
-        categoryId: typeof id === 'string' ? id : id[0],
-        newSectionImageUri,
+        categoryId,
+        imageUri: newSectionImageUri,
       });
-      let imageUrl = '';
-      if (newSectionImageUri) {
-        // Extract file name from URI
-        const fileName = newSectionImageUri.split('/').pop() || 'image.jpg';
-        imageUrl = await uploadImageFile(newSectionImageUri, fileName);
-        console.log('Image uploaded, imageUrl:', imageUrl);
-      }
-      const uniqueId = ID.unique();
-      console.log('Generated unique ID:', uniqueId);
-      const doc = await database.createDocument(
-        config.db,
-        config.col.sections,
-        uniqueId,
-        {
-          title: newSectionTitle,
-          categoryId: typeof id === 'string' ? id : id[0],
-          imageUrl,
-        }
-      );
-      console.log('Section created:', doc);
       setShowAddModal(false);
-      fetchCategoryAndSections();
+      loadCategoryAndSections();
     } catch (err: any) {
       console.error('Failed to add section:', err);
-      setAddError(
-        'Failed to add section: ' +
-          (err && typeof err === 'object' && 'message' in err
-            ? (err as any).message
-            : JSON.stringify(err))
-      );
+      setAddError(err?.message || 'Failed to add section');
     } finally {
       setAddLoading(false);
     }
@@ -184,9 +144,21 @@ export default function CategoryDetailScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            // Delete logic will be implemented here
-            Alert.alert('Delete', `Section ${sectionId} will be deleted`);
+          onPress: async () => {
+            try {
+              setDeletingSectionId(sectionId);
+              await deleteSection(sectionId);
+              await loadCategoryAndSections();
+              Alert.alert('Success', 'Section deleted successfully');
+            } catch (err) {
+              console.error('Error deleting section:', err);
+              Alert.alert(
+                'Error',
+                'Failed to delete section. Please try again.'
+              );
+            } finally {
+              setDeletingSectionId(null);
+            }
           },
         },
       ]
@@ -231,7 +203,7 @@ export default function CategoryDetailScreen() {
           <Text style={[styles.errorText, { color: '#ff3333' }]}>{error}</Text>
           <TouchableOpacity
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={fetchCategoryAndSections}
+            onPress={loadCategoryAndSections}
           >
             <Text style={{ color: colors.white }}>Retry</Text>
           </TouchableOpacity>

@@ -27,13 +27,12 @@ import {
   RefreshCw,
   AlertTriangle,
 } from 'lucide-react-native';
-import { database, config } from '../../lib/appwrite';
-import { Query, Models } from 'react-native-appwrite';
-
-interface Category extends Models.Document {
-  title: string;
-  sectionsCount: number;
-}
+import {
+  Category,
+  fetchCategories,
+  addCategory,
+  deleteCategory,
+} from '../services/categoryService';
 
 export default function ContentManagementScreen() {
   const router = useRouter();
@@ -53,7 +52,7 @@ export default function ContentManagementScreen() {
   );
 
   useEffect(() => {
-    fetchCategories();
+    loadCategories();
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 500,
@@ -61,45 +60,14 @@ export default function ContentManagementScreen() {
     }).start();
   }, []);
 
-  const fetchCategories = async () => {
+  const loadCategories = async () => {
     try {
       setLoading(true);
-      setError(null); // Reset error state
-
-      console.log('Fetching categories...');
-      const response = await database.listDocuments(
-        config.db,
-        config.col.categories,
-        [Query.orderDesc('$createdAt')]
-      );
-
-      console.log('Categories response:', response);
-
-      // Fetch sections count for each category
-      const categoriesWithSections = await Promise.all(
-        response.documents.map(async (category) => {
-          console.log('Fetching sections for category:', category.$id);
-          const sectionsResponse = await database.listDocuments(
-            config.db,
-            config.col.sections,
-            [Query.equal('categoryId', category.$id)]
-          );
-          console.log(
-            'Sections response for category:',
-            category.$id,
-            sectionsResponse
-          );
-          return {
-            ...category,
-            sectionsCount: sectionsResponse.total,
-          };
-        })
-      );
-
-      console.log('Final categories with sections:', categoriesWithSections);
-      setCategories(categoriesWithSections as Category[]);
+      setError(null);
+      const categoriesData = await fetchCategories();
+      setCategories(categoriesData);
     } catch (err) {
-      console.error('Error fetching categories:', err);
+      console.error('Error loading categories:', err);
       setError('Failed to load categories');
     } finally {
       setLoading(false);
@@ -114,26 +82,16 @@ export default function ContentManagementScreen() {
 
   const handleSubmitAddCategory = async () => {
     setAddError('');
-    if (!newCategoryTitle.trim()) {
-      setAddError('Category title is required');
-      return;
-    }
-
     setAddLoading(true);
     try {
-      await database.createDocument(
-        config.db,
-        config.col.categories,
-        'unique()',
-        {
-          title: newCategoryTitle.trim(),
-        }
-      );
+      await addCategory(newCategoryTitle);
       setShowAddModal(false);
-      fetchCategories();
+      loadCategories();
     } catch (err) {
       console.error('Error adding category:', err);
-      setAddError('Failed to add category');
+      setAddError(
+        err instanceof Error ? err.message : 'Failed to add category'
+      );
     } finally {
       setAddLoading(false);
     }
@@ -155,52 +113,8 @@ export default function ContentManagementScreen() {
           onPress: async () => {
             try {
               setDeletingCategoryId(categoryId);
-
-              // First, get all sections in this category
-              const sectionsResponse = await database.listDocuments(
-                config.db,
-                config.col.sections,
-                [Query.equal('categoryId', categoryId)]
-              );
-
-              // Delete all sections and their associated files
-              const deletePromises = sectionsResponse.documents.map(
-                async (section) => {
-                  // Delete section's audio files if any
-                  if (section.audioFiles && section.audioFiles.length > 0) {
-                    await Promise.all(
-                      section.audioFiles.map((fileId: string) =>
-                        database.deleteDocument(
-                          config.db,
-                          config.col.audioFiles,
-                          fileId
-                        )
-                      )
-                    );
-                  }
-                  // Delete the section
-                  return database.deleteDocument(
-                    config.db,
-                    config.col.sections,
-                    section.$id
-                  );
-                }
-              );
-
-              // Wait for all sections and files to be deleted
-              await Promise.all(deletePromises);
-
-              // Finally, delete the category
-              await database.deleteDocument(
-                config.db,
-                config.col.categories,
-                categoryId
-              );
-
-              // Refresh the categories list
-              await fetchCategories();
-
-              // Show success message
+              await deleteCategory(categoryId);
+              await loadCategories();
               Alert.alert(
                 'Success',
                 'Category and all its contents have been deleted successfully.'
@@ -289,7 +203,7 @@ export default function ContentManagementScreen() {
             </Text>
             <TouchableOpacity
               style={[styles.retryButton, { backgroundColor: colors.primary }]}
-              onPress={fetchCategories}
+              onPress={loadCategories}
             >
               <RefreshCw size={16} color={colors.white} />
               <Text style={{ color: colors.white, fontWeight: '600' }}>
