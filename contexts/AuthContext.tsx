@@ -9,6 +9,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   currentUser: Models.User<Models.Preferences> | null;
   email: string | null;
+  username: string | null;
   role: UserRole;
   loading: boolean;
   error: string | null;
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] =
     useState<Models.User<Models.Preferences> | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>('user');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user = await account.get();
         setCurrentUser(user);
         setEmail(user.email);
+        setUsername(user.name || user.email?.split('@')[0] || 'User');
         // Fetch user doc from custom collection by authId
         const userDocs = await database.listDocuments(
           config.db,
@@ -43,6 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         if (userDocs.documents.length > 0) {
           setRole(userDocs.documents[0].role || 'user');
+          // If there's a username in the user document, use it
+          if (userDocs.documents[0].username) {
+            setUsername(userDocs.documents[0].username);
+          }
         } else {
           setRole('user');
         }
@@ -51,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(null);
         setIsAuthenticated(false);
         setEmail(null);
+        setUsername(null);
         setRole('user');
       } finally {
         setLoading(false);
@@ -81,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const user = await account.get();
       setCurrentUser(user);
       setEmail(user.email);
+      setUsername(user.name || user.email?.split('@')[0] || 'User');
       setIsAuthenticated(true);
 
       // Get user role from custom collection
@@ -95,6 +104,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userDoc = userDocs.documents[0];
         userRole = userDoc.role as UserRole;
         setRole(userRole);
+        // If there's a username in the user document, use it
+        if (userDoc.username) {
+          setUsername(userDoc.username);
+        }
       } else {
         setRole('user');
       }
@@ -130,9 +143,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         throw err;
       }
+
+      const username = email.split('@')[0];
+      setUsername(username);
+
       // 2. Create user doc in custom collection with authId and email
       await database.createDocument(config.db, config.col.users, ID.unique(), {
         email,
+        username,
         authId: authUser.$id,
         role: userRole,
       });
@@ -151,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setEmail(null);
+      setUsername(null);
       setRole('user');
       setIsAuthenticated(false);
     } catch (err: any) {
@@ -166,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         currentUser,
         email,
+        username,
         role,
         loading,
         error,

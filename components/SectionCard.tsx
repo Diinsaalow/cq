@@ -12,6 +12,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { SectionItem } from '../types';
 import { Play } from 'lucide-react-native';
 import Animated, { FadeInRight } from 'react-native-reanimated';
+import OptimizedImage from './OptimizedImage';
+import { getImageUrl } from '../utils/utils';
 
 interface SectionCardProps {
   item: SectionItem;
@@ -45,7 +47,14 @@ export default function SectionCard({
         activeOpacity={0.95}
       >
         <View style={[styles.imageContainer, { shadowColor: colors.shadow }]}>
-          <Image source={{ uri: item.imageUrl }} style={styles.image} />
+          {/* <Image source={{ uri: item.imageUrl }} style={styles.image} /> */}
+          <OptimizedImage
+            source={{
+              uri: getImageUrl(item.imageUrl),
+            }}
+            style={styles.image}
+            resizeMode='cover'
+          />
         </View>
         <View style={styles.contentContainer}>
           <View style={styles.textContainer}>
@@ -66,7 +75,7 @@ export default function SectionCard({
             <Text style={[styles.count, { color: colors.primary }]}>
               {item.count}
             </Text>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[
                 styles.playButton,
                 {
@@ -76,7 +85,7 @@ export default function SectionCard({
               ]}
             >
               <Play size={16} color={colors.white} style={styles.playIcon} />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
       </TouchableOpacity>

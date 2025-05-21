@@ -68,18 +68,24 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
   // Initialize audio mode
   useEffect(() => {
     const setupAudio = async () => {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: true,
-      });
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          shouldDuckAndroid: true,
+        });
+      } catch (error) {
+        console.error('Error setting up audio mode:', error);
+      }
     };
     setupAudio();
 
     // Cleanup on unmount
     return () => {
       if (currentSound) {
-        currentSound.unloadAsync();
+        currentSound.unloadAsync().catch((err) => {
+          console.error('Error unloading sound on cleanup:', err);
+        });
       }
     };
   }, []);
@@ -88,13 +94,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
-    if (isPlaying) {
+    if (isPlaying && currentSound) {
       interval = setInterval(async () => {
-        if (currentSound) {
+        try {
           const status = await currentSound.getStatusAsync();
           if (status.isLoaded) {
             setPosition(status.positionMillis / 1000);
           }
+        } catch (error) {
+          console.error('Error getting sound status:', error);
         }
       }, 1000);
     }
@@ -123,13 +131,31 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     index: number
   ) => {
     try {
+      // Validate parameters
+      if (!audio || !audio.url) {
+        throw new Error('Valid audio file is required');
+      }
+
+      if (!sectionId) {
+        throw new Error('Section ID is required');
+      }
+
       setLoading(true);
+      console.log(
+        'Playing audio:',
+        audio.title,
+        'from section:',
+        sectionId,
+        'index:',
+        index
+      );
 
       // Stop any currently playing sound
       if (currentSound) {
         await currentSound.unloadAsync();
       }
 
+      console.log('Creating sound from URL:', audio.url);
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: audio.url },
         { shouldPlay: true },
@@ -141,50 +167,70 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
       setCurrentSectionId(sectionId);
       setCurrentAudioIndex(index);
       setIsPlaying(true);
-      setLoading(false);
     } catch (error) {
       console.error('Error playing sound:', error);
+    } finally {
       setLoading(false);
     }
   };
 
   const pauseSound = async () => {
-    if (currentSound) {
-      await currentSound.pauseAsync();
-      setIsPlaying(false);
+    try {
+      if (currentSound) {
+        await currentSound.pauseAsync();
+        setIsPlaying(false);
+      }
+    } catch (error) {
+      console.error('Error pausing sound:', error);
     }
   };
 
   const resumeSound = async () => {
-    if (currentSound) {
-      await currentSound.playAsync();
-      setIsPlaying(true);
+    try {
+      if (currentSound) {
+        await currentSound.playAsync();
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error('Error resuming sound:', error);
     }
   };
 
   const stopSound = async () => {
-    if (currentSound) {
-      await currentSound.stopAsync();
-      await currentSound.unloadAsync();
-      setCurrentSound(null);
-      setCurrentAudio(null);
-      setCurrentSectionId(null);
-      setCurrentAudioIndex(0);
-      setIsPlaying(false);
-      setPosition(0);
-      setDuration(0);
+    try {
+      if (currentSound) {
+        await currentSound.stopAsync();
+        await currentSound.unloadAsync();
+        setCurrentSound(null);
+        setCurrentAudio(null);
+        setCurrentSectionId(null);
+        setCurrentAudioIndex(0);
+        setIsPlaying(false);
+        setPosition(0);
+        setDuration(0);
+      }
+    } catch (error) {
+      console.error('Error stopping sound:', error);
     }
   };
 
   const playNext = async () => {
-    if (nextTrackRef.current) {
-      await nextTrackRef.current();
+    try {
+      if (nextTrackRef.current) {
+        await nextTrackRef.current();
+      }
+    } catch (error) {
+      console.error('Error playing next track:', error);
     }
   };
 
   const playPrevious = async () => {
-    if (previousTrackRef.current) {
-      await previousTrackRef.current();
+    try {
+      if (previousTrackRef.current) {
+        await previousTrackRef.current();
+      }
+    } catch (error) {
+      console.error('Error playing previous track:', error);
     }
   };
 

@@ -18,22 +18,31 @@ import {
 } from 'lucide-react-native';
 import getColors from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
-import { MOCK_DATA } from '../data/mockData';
 import { useAudio } from '../contexts/AudioContext';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import OptimizedImage from '../components/OptimizedImage';
 import { cacheAudioFile, preloadAudio } from '../utils/cache';
+import { fetchSectionById } from './services/sectionService';
+import { fetchAudioFiles } from './services/audioService';
+import { AudioFile } from '../types';
+import { getImageUrl } from '../utils/utils';
 
 const { width } = Dimensions.get('window');
 
 export default function PlayerScreen() {
   const router = useRouter();
-  const { sectionId, audioIndex: audioIndexParam } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const sectionId = params.sectionId as string;
+  const audioIndexParam = params.audioIndex as string;
   const audioIndex = Number(audioIndexParam) || 0;
+
   const { theme } = useTheme();
   const colors = getColors(theme);
   const [error, setError] = useState<string | null>(null);
+  const [section, setSection] = useState<any | null>(null);
+  const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Get audio context
   const {
@@ -50,16 +59,40 @@ export default function PlayerScreen() {
     previousTrackRef,
   } = useAudio();
 
-  // Find the section data
-  const section = MOCK_DATA.flatMap((category) => category.sections).find(
-    (section) => section.id === sectionId
-  );
+  // Load section and audio data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setError(null);
+        setIsLoadingData(true);
 
-  const audioFiles = section?.audioFiles || [];
+        if (!sectionId) {
+          throw new Error('Section ID is missing');
+        }
+
+        console.log('Loading section with ID:', sectionId);
+
+        // Fetch section data
+        const sectionData = await fetchSectionById(sectionId);
+        setSection(sectionData);
+
+        // Fetch audio files for this section
+        const files = await fetchAudioFiles(sectionId);
+        setAudioFiles(files);
+      } catch (err: any) {
+        console.error('Error loading data:', err);
+        setError(err.message || 'Failed to load audio data');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadData();
+  }, [sectionId]);
 
   // Preload next audio file
   useEffect(() => {
-    if (currentAudioIndex < audioFiles.length - 1) {
+    if (audioFiles.length > 0 && currentAudioIndex < audioFiles.length - 1) {
       const nextAudio = audioFiles[currentAudioIndex + 1];
       if (nextAudio?.url) {
         preloadAudio(nextAudio.url);
@@ -71,6 +104,8 @@ export default function PlayerScreen() {
   useEffect(() => {
     const initializeAudio = async () => {
       try {
+        if (isLoadingData || audioFiles.length === 0 || !sectionId) return;
+
         setError(null);
         // If this is a new section or the user manually navigated to a different track
         if (
@@ -86,7 +121,7 @@ export default function PlayerScreen() {
             );
             await playSound(
               { ...audioToPlay, url: cachedUrl },
-              sectionId as string,
+              sectionId,
               audioIndex
             );
           }
@@ -98,7 +133,7 @@ export default function PlayerScreen() {
     };
 
     initializeAudio();
-  }, [sectionId, audioIndex]);
+  }, [sectionId, audioIndex, audioFiles, isLoadingData]);
 
   const handlePlayPause = async () => {
     try {
@@ -115,6 +150,8 @@ export default function PlayerScreen() {
   };
 
   const handlePrevious = useCallback(async () => {
+    if (!sectionId) return;
+
     try {
       setError(null);
       if (currentAudioIndex > 0) {
@@ -126,7 +163,7 @@ export default function PlayerScreen() {
           );
           await playSound(
             { ...prevAudio, url: cachedUrl },
-            sectionId as string,
+            sectionId,
             currentAudioIndex - 1
           );
         }
@@ -138,6 +175,8 @@ export default function PlayerScreen() {
   }, [currentAudioIndex, audioFiles, sectionId, playSound]);
 
   const handleNext = useCallback(async () => {
+    if (!sectionId) return;
+
     try {
       setError(null);
       if (currentAudioIndex < audioFiles.length - 1) {
@@ -149,7 +188,7 @@ export default function PlayerScreen() {
           );
           await playSound(
             { ...nextAudio, url: cachedUrl },
-            sectionId as string,
+            sectionId,
             currentAudioIndex + 1
           );
         }
@@ -162,7 +201,7 @@ export default function PlayerScreen() {
 
   // Register next/previous handlers
   useEffect(() => {
-    if (section) {
+    if (section && audioFiles.length > 0) {
       nextTrackRef.current = handleNext;
       previousTrackRef.current = handlePrevious;
     }
@@ -171,7 +210,14 @@ export default function PlayerScreen() {
       nextTrackRef.current = async () => {};
       previousTrackRef.current = async () => {};
     };
-  }, [section, handleNext, handlePrevious, nextTrackRef, previousTrackRef]);
+  }, [
+    section,
+    audioFiles,
+    handleNext,
+    handlePrevious,
+    nextTrackRef,
+    previousTrackRef,
+  ]);
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number) => {
@@ -180,18 +226,18 @@ export default function PlayerScreen() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  if (!section) {
+  if (isLoadingData) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ErrorState message="Section not found" />
+        <LoadingState message="Loading audio data..." />
       </View>
     );
   }
 
-  if (loading) {
+  if (!section || audioFiles.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <LoadingState message="Loading audio..." />
+        <ErrorState message="Section or audio files not found" />
       </View>
     );
   }
@@ -230,7 +276,7 @@ export default function PlayerScreen() {
       {/* Album Art */}
       <View style={styles.albumArtContainer}>
         <OptimizedImage
-          source={{ uri: section.imageUrl }}
+          source={{ uri: getImageUrl(section.imageUrl) }}
           style={styles.albumArt}
           resizeMode="cover"
         />

@@ -3,6 +3,7 @@ export interface AudioFile {
   title: string;
   duration: number; // duration in seconds
   url: string;
+  fileId?: string; // Appwrite storage file ID
 }
 
 export interface SectionItem {

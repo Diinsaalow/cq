@@ -10,6 +10,7 @@ const light = {
   background: '#FFFFFF',
   shadow: 'rgba(0, 0, 0, 0.1)',
   accent: '#22C55E',
+  error: '#FF3B30',
   gradient: {
     start: '#4CAF50',
     end: '#22C55E',
@@ -26,6 +27,7 @@ const dark = {
   background: '#181A20',
   shadow: 'rgba(0,0,0,0.7)',
   accent: '#22C55E',
+  error: '#FF453A',
   gradient: {
     start: '#4CAF50',
     end: '#22C55E',

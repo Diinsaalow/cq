@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,32 +6,94 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Play, ArrowLeft } from 'lucide-react-native';
 import getColors from '../../constants/Colors';
 import { useTheme } from '../../contexts/ThemeContext';
-import { MOCK_DATA } from '../../data/mockData';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Section, fetchSectionById } from '../services/sectionService';
+import { fetchAudioFiles } from '../services/audioService';
+import { AudioFile } from '../../types';
+import OptimizedImage from '../../components/OptimizedImage';
+import ErrorState from '../../components/ErrorState';
 
 export default function SectionScreen() {
-  const { id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const id = params.id as string;
   const router = useRouter();
   const { theme } = useTheme();
   const colors = getColors(theme);
 
-  // Find the section data
-  const section = MOCK_DATA.flatMap((category) => category.sections).find(
-    (section) => section.id === id
-  );
+  const [section, setSection] = useState<Section | null>(null);
+  const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!section) {
+  useEffect(() => {
+    const loadSectionData = async () => {
+      try {
+        setError(null);
+        setLoading(true);
+
+        if (!id) {
+          throw new Error('Section ID is missing');
+        }
+
+        console.log('Loading section with ID:', id);
+
+        // Fetch section details
+        const sectionData = await fetchSectionById(id);
+        setSection(sectionData);
+
+        // Fetch audio files for this section
+        const files = await fetchAudioFiles(id);
+        setAudioFiles(files);
+      } catch (err: any) {
+        console.error('Error loading section data:', err);
+        setError(err.message || 'Failed to load section data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSectionData();
+  }, [id]);
+
+  if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.textDark }}>Section not found</Text>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.background,
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textLight }]}>
+          Loading section...
+        </Text>
       </View>
     );
   }
+
+  if (error || !section) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ErrorState message={error || 'Section not found'} />
+      </View>
+    );
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -54,58 +116,48 @@ export default function SectionScreen() {
         </Text>
       </View>
 
-      {/* Hero Section */}
-      {/* <View style={[styles.hero, { backgroundColor: colors.white, shadowColor: colors.shadow }]}> 
-        <Image 
-          source={{ uri: section.imageUrl }} 
-          style={styles.heroImage}
-        />
-        <View style={styles.heroContent}>
-          <Text style={[styles.heroTitle, { color: colors.textDark }]}>{section.title}</Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textLight }]}>{section.subtitle}</Text>
-          <TouchableOpacity style={[styles.playAllButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}> 
-            <Play color={colors.white} size={20} />
-            <Text style={[styles.playAllText, { color: colors.white }]}>Play All</Text>
-          </TouchableOpacity>
-        </View>
-      </View> */}
-
       {/* Audio List */}
       <ScrollView style={styles.audioList} showsVerticalScrollIndicator={false}>
-        {Array.from({ length: section.count }).map((_, index) => (
-          <Animated.View
-            key={index}
-            entering={FadeInDown.delay(index * 100)}
-            style={styles.audioItemContainer}
-          >
-            <TouchableOpacity
-              style={[
-                styles.audioItem,
-                { backgroundColor: colors.white, shadowColor: colors.shadow },
-              ]}
-              onPress={() =>
-                router.push({
-                  pathname: '/player',
-                  params: { sectionId: id, audioIndex: index },
-                })
-              }
+        {audioFiles.length > 0 ? (
+          audioFiles.map((audio, index) => (
+            <Animated.View
+              key={audio.id}
+              entering={FadeInDown.delay(index * 100)}
+              style={styles.audioItemContainer}
             >
-              <View style={styles.audioInfo}>
-                <Text style={[styles.audioTitle, { color: colors.textDark }]}>
-                  Audio {index + 1}
-                </Text>
-                <Text
-                  style={[styles.audioDuration, { color: colors.textLight }]}
-                >
-                  3:45
-                </Text>
-              </View>
-              <TouchableOpacity style={styles.playButton}>
-                <Play size={16} color={colors.white} />
+              <TouchableOpacity
+                style={[
+                  styles.audioItem,
+                  { backgroundColor: colors.white, shadowColor: colors.shadow },
+                ]}
+                onPress={() =>
+                  router.push({
+                    pathname: '/player',
+                    params: { sectionId: id, audioIndex: index },
+                  })
+                }
+              >
+                <View style={styles.audioInfo}>
+                  <Text style={[styles.audioTitle, { color: colors.textDark }]}>
+                    {audio.title || `Audio ${index + 1}`}
+                  </Text>
+                  <Text
+                    style={[styles.audioDuration, { color: colors.textLight }]}
+                  >
+                    {formatTime(audio.duration)}
+                  </Text>
+                </View>
+                <TouchableOpacity style={styles.playButton}>
+                  <Play size={16} color={colors.white} />
+                </TouchableOpacity>
               </TouchableOpacity>
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
+            </Animated.View>
+          ))
+        ) : (
+          <Text style={[styles.noAudioText, { color: colors.textLight }]}>
+            No audio files available in this section
+          </Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -134,48 +186,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  hero: {
-    padding: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  heroImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 20,
-    marginBottom: 20,
-  },
-  heroContent: {
-    alignItems: 'center',
-  },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  heroSubtitle: {
+  loadingText: {
+    marginTop: 10,
     fontSize: 16,
-    marginBottom: 20,
   },
-  playAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  playAllText: {
+  noAudioText: {
+    textAlign: 'center',
+    marginTop: 40,
     fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
   },
   audioList: {
     flex: 1,

@@ -101,7 +101,7 @@ export const uploadAudioFile = async (
       ID.unique(),
       {
         title: title,
-        sectionId: [sectionId], // Wrap sectionId in an array since it's a relationship field
+        sectionId: sectionId, // Wrap sectionId in an array since it's a relationship field
         fileId: fileUpload.$id,
         fileName: fileName,
         fileSize: fileInfo.size,

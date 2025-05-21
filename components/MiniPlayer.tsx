@@ -73,7 +73,7 @@ export default function MiniPlayer() {
       translateX.value = event.translationX;
     })
     .onEnd((event) => {
-      if (Math.abs(event.translationX) > width * 0.5) {
+      if (Math.abs(event.translationX) > width * 0.3) {
         // If swiped more than 50% of screen width
         translateX.value = withSpring(event.translationX > 0 ? width : -width);
         isVisible.value = false;

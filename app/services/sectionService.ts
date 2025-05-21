@@ -26,6 +26,28 @@ export const fetchSectionsByCategoryId = async (
   }
 };
 
+export const fetchSectionById = async (
+  sectionId: string | undefined
+): Promise<Section> => {
+  try {
+    // Validate sectionId
+    if (!sectionId) {
+      throw new Error('Section ID is required');
+    }
+
+    console.log('Fetching section with ID:', sectionId);
+    const response = await database.getDocument(
+      config.db,
+      config.col.sections,
+      sectionId
+    );
+    return response as Section;
+  } catch (err) {
+    console.error('Error fetching section:', err);
+    throw new Error('Failed to load section');
+  }
+};
+
 export const addSection = async ({
   title,
   categoryId,
