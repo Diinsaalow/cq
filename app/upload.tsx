@@ -38,12 +38,14 @@ import OptimizedImage from '../components/OptimizedImage';
 
 // Helper: map backend category/section to local type
 const mapCategory = (cat: any) => ({
-  id: cat.$id || cat.id,
-  title: cat.title,
-  sections: (cat.sections || []).map((sec: any) => ({
-    id: sec.$id || sec.id,
-    title: sec.title,
-  })),
+  id: cat?.$id || cat?.id || '',
+  title: cat?.title || '',
+  sections: Array.isArray(cat?.sections)
+    ? cat.sections.map((sec: any) => ({
+        id: sec?.$id || sec?.id || '',
+        title: sec?.title || '',
+      }))
+    : [],
 });
 
 export default function UploadScreen() {

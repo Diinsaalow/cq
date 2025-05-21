@@ -118,7 +118,7 @@ export default function CategoryDetailScreen() {
       const categoryId = typeof id === 'string' ? id : id[0];
       await addSection({
         title: newSectionTitle,
-        categoryId: categoryId,
+        categoryId,
         imageUri: newSectionImageUri,
       });
       setShowAddModal(false);
@@ -275,7 +275,11 @@ export default function CategoryDetailScreen() {
               ) : (
                 <View style={styles.sectionsList}>
                   {sections.map((section) => (
-                    <View key={section.$id} style={styles.sectionItem}>
+                    <TouchableOpacity
+                      key={section.$id}
+                      style={styles.sectionItem}
+                      onPress={() => handleSectionPress(section.$id)}
+                    >
                       <View style={styles.sectionContent}>
                         <View style={styles.sectionIconContainer}>
                           <Music size={24} color={colors.primary} />
@@ -328,7 +332,7 @@ export default function CategoryDetailScreen() {
                           </TouchableOpacity>
                         </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}
