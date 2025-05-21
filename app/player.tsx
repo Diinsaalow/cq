@@ -18,14 +18,36 @@ import {
 } from 'lucide-react-native';
 import getColors from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
-import { MOCK_DATA } from '../data/mockData';
 import { useAudio } from '../contexts/AudioContext';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import OptimizedImage from '../components/OptimizedImage';
 import { cacheAudioFile, preloadAudio } from '../utils/cache';
+import { database, config } from '../lib/appwrite';
+import { Query } from 'react-native-appwrite';
+import { storage } from '../lib/appwrite';
+import { getImageUrl } from '../utils/utils';
 
 const { width } = Dimensions.get('window');
+
+// Define types based on your Appwrite structure
+interface SectionDoc {
+  $id: string;
+  title: string;
+  categoryId: string[];
+  imageUrl?: string;
+}
+
+interface AudioDoc {
+  $id: string;
+  title: string;
+  sectionId: string;
+  fileId: string;
+  fileName: string;
+  fileSize: number;
+  duration: number;
+  uploadedAt: string;
+}
 
 export default function PlayerScreen() {
   const router = useRouter();
@@ -34,13 +56,15 @@ export default function PlayerScreen() {
   const { theme } = useTheme();
   const colors = getColors(theme);
   const [error, setError] = useState<string | null>(null);
+  const [section, setSection] = useState<SectionDoc | null>(null);
+  const [audioFiles, setAudioFiles] = useState<AudioDoc[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Get audio context
   const {
     isPlaying,
     position,
     duration,
-    loading,
     currentAudioIndex,
     currentSectionId,
     playSound,
@@ -50,19 +74,54 @@ export default function PlayerScreen() {
     previousTrackRef,
   } = useAudio();
 
-  // Find the section data
-  const section = MOCK_DATA.flatMap((category) => category.sections).find(
-    (section) => section.id === sectionId
-  );
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const audioFiles = section?.audioFiles || [];
+      // Fetch section details
+      const sectionData = await database.getDocument(
+        config.db,
+        config.col.sections,
+        sectionId as string
+      );
+      setSection(sectionData as unknown as SectionDoc);
+
+      // Fetch audio files for this section
+      const filesData = await database.listDocuments(
+        config.db,
+        config.col.audioFiles,
+        [
+          Query.equal('sectionId', [sectionId as string]),
+          Query.orderDesc('$createdAt'),
+        ]
+      );
+      setAudioFiles(filesData.documents as unknown as AudioDoc[]);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load data. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  // Fetch section and audio files
+  useEffect(() => {
+    if (sectionId) {
+      fetchData();
+    }
+  }, [sectionId]);
 
   // Preload next audio file
   useEffect(() => {
     if (currentAudioIndex < audioFiles.length - 1) {
       const nextAudio = audioFiles[currentAudioIndex + 1];
-      if (nextAudio?.url) {
-        preloadAudio(nextAudio.url);
+      if (nextAudio?.fileId) {
+        // Get the file URL from Appwrite storage
+        const fileUrl = storage
+          .getFileView(config.audio, nextAudio.fileId)
+          .toString();
+        preloadAudio(fileUrl);
       }
     }
   }, [currentAudioIndex, audioFiles]);
@@ -79,13 +138,17 @@ export default function PlayerScreen() {
         ) {
           const audioToPlay = audioFiles[audioIndex];
           if (audioToPlay) {
-            // Cache the audio file before playing
-            const cachedUrl = await cacheAudioFile(
-              audioToPlay.url,
-              `${audioToPlay.id}.mp3`
-            );
+            // Get the file URL from Appwrite storage
+            const fileUrl = storage
+              .getFileView(config.audio, audioToPlay.fileId)
+              .toString();
             await playSound(
-              { ...audioToPlay, url: cachedUrl },
+              {
+                id: audioToPlay.$id,
+                title: audioToPlay.title,
+                duration: audioToPlay.duration,
+                url: fileUrl,
+              },
               sectionId as string,
               audioIndex
             );
@@ -98,7 +161,7 @@ export default function PlayerScreen() {
     };
 
     initializeAudio();
-  }, [sectionId, audioIndex]);
+  }, [sectionId, audioIndex, section, audioFiles]);
 
   const handlePlayPause = async () => {
     try {
@@ -120,12 +183,16 @@ export default function PlayerScreen() {
       if (currentAudioIndex > 0) {
         const prevAudio = audioFiles[currentAudioIndex - 1];
         if (prevAudio) {
-          const cachedUrl = await cacheAudioFile(
-            prevAudio.url,
-            `${prevAudio.id}.mp3`
-          );
+          const fileUrl = storage
+            .getFileView(config.audio, prevAudio.fileId)
+            .toString();
           await playSound(
-            { ...prevAudio, url: cachedUrl },
+            {
+              id: prevAudio.$id,
+              title: prevAudio.title,
+              duration: prevAudio.duration,
+              url: fileUrl,
+            },
             sectionId as string,
             currentAudioIndex - 1
           );
@@ -143,12 +210,16 @@ export default function PlayerScreen() {
       if (currentAudioIndex < audioFiles.length - 1) {
         const nextAudio = audioFiles[currentAudioIndex + 1];
         if (nextAudio) {
-          const cachedUrl = await cacheAudioFile(
-            nextAudio.url,
-            `${nextAudio.id}.mp3`
-          );
+          const fileUrl = storage
+            .getFileView(config.audio, nextAudio.fileId)
+            .toString();
           await playSound(
-            { ...nextAudio, url: cachedUrl },
+            {
+              id: nextAudio.$id,
+              title: nextAudio.title,
+              duration: nextAudio.duration,
+              url: fileUrl,
+            },
             sectionId as string,
             currentAudioIndex + 1
           );
@@ -180,14 +251,6 @@ export default function PlayerScreen() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  if (!section) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ErrorState message="Section not found" />
-      </View>
-    );
-  }
-
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -199,7 +262,25 @@ export default function PlayerScreen() {
   if (error) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ErrorState message={error} onRetry={handlePlayPause} />
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            setLoading(true);
+            setError(null);
+            // Retry fetching data
+            if (sectionId) {
+              fetchData();
+            }
+          }}
+        />
+      </View>
+    );
+  }
+
+  if (!section || !audioFiles.length) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ErrorState message="No audio files found in this section" />
       </View>
     );
   }
@@ -230,7 +311,9 @@ export default function PlayerScreen() {
       {/* Album Art */}
       <View style={styles.albumArtContainer}>
         <OptimizedImage
-          source={{ uri: section.imageUrl }}
+          source={{
+            uri: getImageUrl(section.imageUrl),
+          }}
           style={styles.albumArt}
           resizeMode="cover"
         />

@@ -109,7 +109,7 @@ export const fetchCategoryById = async (id: string): Promise<Category> => {
     const category = await database.getDocument(
       config.db,
       config.col.categories,
-      id
+      id,
     );
     return category as unknown as Category;
   } catch (err) {

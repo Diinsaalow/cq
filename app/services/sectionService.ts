@@ -17,7 +17,7 @@ export const fetchSectionsByCategoryId = async (
     const response = await database.listDocuments(
       config.db,
       config.col.sections,
-      [Query.equal('categoryId', categoryId)]
+      [Query.equal('categoryId', categoryId), Query.orderDesc('$createdAt')]
     );
     return response.documents as Section[];
   } catch (err) {

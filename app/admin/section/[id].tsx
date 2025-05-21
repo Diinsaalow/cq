@@ -36,7 +36,7 @@ interface SectionDoc {
 interface AudioDoc {
   $id: string;
   title: string;
-  sectionId: string[]; // Relationship is always an array
+  sectionId: string; // Relationship is always an array
   fileId: string;
   fileName: string;
   fileSize: number;
@@ -115,7 +115,11 @@ export default function SectionDetailScreen() {
   };
 
   const handleAudioPress = (audioId: string) => {
-    router.push(`/player?id=${audioId}`);
+    const audioIndex = audioFiles.findIndex((audio) => audio.$id === audioId);
+    router.push({
+      pathname: '/player',
+      params: { sectionId: id, audioIndex },
+    });
   };
 
   const formatDuration = (seconds: number) => {

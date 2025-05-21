@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -18,18 +17,9 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import getColors from '../../../constants/Colors';
 import { useTheme } from '../../../contexts/ThemeContext';
-import {
-  ArrowLeft,
-  File,
-  Plus,
-  Edit,
-  Trash,
-  ChevronRight,
-  Music,
-} from 'lucide-react-native';
+import { ArrowLeft, File, Plus, Edit, Trash, Music } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import { uploadImageFile } from '../../../lib/storage';
 import { Category, fetchCategoryById } from '../../services/categoryService';
 import {
   Section,
@@ -37,8 +27,8 @@ import {
   addSection,
   deleteSection,
 } from '../../services/sectionService';
-
-const { width } = Dimensions.get('window');
+import { database, config } from '../../../lib/appwrite';
+import { Query } from 'react-native-appwrite';
 
 export default function CategoryDetailScreen() {
   const router = useRouter();
@@ -82,8 +72,23 @@ export default function CategoryDetailScreen() {
         fetchSectionsByCategoryId(categoryId),
       ]);
 
+      // Fetch audio files count for each section
+      const sectionsWithCount = await Promise.all(
+        sectionsData.map(async (section) => {
+          const audioFilesResponse = await database.listDocuments(
+            config.db,
+            config.col.audioFiles,
+            [Query.equal('sectionId', [section.$id])]
+          );
+          return {
+            ...section,
+            count: audioFilesResponse.total,
+          };
+        })
+      );
+
       setCategory(categoryData);
-      setSections(sectionsData);
+      setSections(sectionsWithCount);
     } catch (err) {
       console.error('Error loading category data:', err);
       setError('Failed to load category data');
@@ -167,6 +172,23 @@ export default function CategoryDetailScreen() {
 
   const handleSectionPress = (sectionId: string) => {
     router.push(`/admin/section/${sectionId}`);
+  };
+
+  const formatDuration = (seconds: number) => {
+    if (!seconds) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs
+      .toString()
+      .padStart(2, '0')}`;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
   return (
@@ -719,5 +741,49 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     resizeMode: 'cover',
     marginTop: 4,
+  },
+  audioFilesContainer: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  audioFileItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  audioFileIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  audioFileDetails: {
+    flex: 1,
+  },
+  audioFileName: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  audioFileMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  audioFileMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  audioFileMetaText: {
+    fontSize: 12,
   },
 });
