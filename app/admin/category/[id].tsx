@@ -118,7 +118,7 @@ export default function CategoryDetailScreen() {
       const categoryId = typeof id === 'string' ? id : id[0];
       await addSection({
         title: newSectionTitle,
-        categoryId,
+        categoryId: categoryId,
         imageUri: newSectionImageUri,
       });
       setShowAddModal(false);
@@ -275,21 +275,9 @@ export default function CategoryDetailScreen() {
               ) : (
                 <View style={styles.sectionsList}>
                   {sections.map((section) => (
-                    <TouchableOpacity
-                      key={section.$id}
-                      style={[
-                        styles.sectionItem,
-                        { backgroundColor: colors.white },
-                      ]}
-                      onPress={() => handleSectionPress(section.$id)}
-                    >
+                    <View key={section.$id} style={styles.sectionItem}>
                       <View style={styles.sectionContent}>
-                        <View
-                          style={[
-                            styles.sectionIconContainer,
-                            { backgroundColor: colors.primary + '15' },
-                          ]}
-                        >
+                        <View style={styles.sectionIconContainer}>
                           <Music size={24} color={colors.primary} />
                         </View>
                         <View style={styles.sectionDetails}>
@@ -299,7 +287,8 @@ export default function CategoryDetailScreen() {
                               { color: colors.textDark },
                             ]}
                           >
-                            {section.title}
+                            {' '}
+                            {section.title}{' '}
                           </Text>
                           <Text
                             style={[
@@ -307,29 +296,39 @@ export default function CategoryDetailScreen() {
                               { color: colors.textLight },
                             ]}
                           >
-                            {section.count || 0} audio files
+                            {' '}
+                            {section.count || 0} audio files{' '}
                           </Text>
                         </View>
-                        <ChevronRight size={20} color={colors.textLight} />
+                        <View style={styles.sectionActions}>
+                          <TouchableOpacity
+                            style={[
+                              styles.actionButton,
+                              { backgroundColor: `${colors.primary}15` },
+                            ]}
+                            onPress={() => handleEditSection(section.$id)}
+                          >
+                            <Edit size={18} color={colors.primary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.actionButton,
+                              { backgroundColor: '#ffebee' },
+                              deletingSectionId === section.$id &&
+                                styles.actionButtonDisabled,
+                            ]}
+                            onPress={() => handleDeleteSection(section.$id)}
+                            disabled={deletingSectionId === section.$id}
+                          >
+                            {deletingSectionId === section.$id ? (
+                              <ActivityIndicator size="small" color="#d32f2f" />
+                            ) : (
+                              <Trash size={18} color="#d32f2f" />
+                            )}
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                      <View style={styles.sectionActions}>
-                        <TouchableOpacity
-                          style={[
-                            styles.actionButton,
-                            { backgroundColor: colors.accent },
-                          ]}
-                          onPress={() => handleEditSection(section.$id)}
-                        >
-                          <Edit size={16} color={colors.white} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.actionButton]}
-                          onPress={() => handleDeleteSection(section.$id)}
-                        >
-                          <Trash size={16} color={colors.white} />
-                        </TouchableOpacity>
-                      </View>
-                    </TouchableOpacity>
+                    </View>
                   ))}
                 </View>
               )}
@@ -574,54 +573,60 @@ const styles = StyleSheet.create({
   },
   sectionsList: {
     marginTop: 16,
+    gap: 16,
   },
   sectionItem: {
+    backgroundColor: '#fff',
     borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
+    marginBottom: 0,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 3,
+    padding: 0,
   },
   sectionContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
+    gap: 16,
   },
   sectionIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    justifyContent: 'center',
+    backgroundColor: '#e8f5e9', // light green for music
     alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'center',
+    marginRight: 12,
   },
   sectionDetails: {
     flex: 1,
+    justifyContent: 'center',
   },
   sectionName: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 4,
   },
   sectionMeta: {
     fontSize: 14,
-    marginTop: 4,
+    opacity: 0.7,
   },
   sectionActions: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center',
+    gap: 8,
   },
   actionButton: {
-    flex: 1,
-    padding: 16,
+    padding: 8,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
   fab: {
     position: 'absolute',

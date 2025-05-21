@@ -1,5 +1,5 @@
 import { database, config } from '../../lib/appwrite';
-import { Query, Models } from 'react-native-appwrite';
+import { Query, Models, ID } from 'react-native-appwrite';
 import { uploadImageFile } from '../../lib/storage';
 
 export interface Section extends Models.Document {
@@ -49,12 +49,11 @@ export const addSection = async ({
     const section = await database.createDocument(
       config.db,
       config.col.sections,
-      'unique()',
+      ID.unique(),
       {
         title: title.trim(),
         categoryId,
         imageUrl,
-        audioFiles: [],
       }
     );
 

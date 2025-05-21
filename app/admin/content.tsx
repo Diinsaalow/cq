@@ -299,7 +299,7 @@ export default function ContentManagementScreen() {
                         <TouchableOpacity
                           style={[
                             styles.actionButton,
-                            { backgroundColor: `${colors.accent}15` },
+                            { backgroundColor: '#ffebee' },
                             deletingCategoryId === category.$id &&
                               styles.actionButtonDisabled,
                           ]}
@@ -307,12 +307,9 @@ export default function ContentManagementScreen() {
                           disabled={deletingCategoryId === category.$id}
                         >
                           {deletingCategoryId === category.$id ? (
-                            <ActivityIndicator
-                              size="small"
-                              color={colors.accent}
-                            />
+                            <ActivityIndicator size="small" color="#d32f2f" />
                           ) : (
-                            <Trash size={18} color={colors.accent} />
+                            <Trash size={18} color="#d32f2f" />
                           )}
                         </TouchableOpacity>
                       </View>
