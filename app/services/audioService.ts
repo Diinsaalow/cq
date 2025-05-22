@@ -100,3 +100,41 @@ export const fetchAudioFileById = async (
     throw new Error('Failed to load audio file');
   }
 };
+
+// Delete an audio file
+export const deleteAudio = async (audioId: string): Promise<void> => {
+  try {
+    // Validate audioId
+    if (!audioId) {
+      throw new Error('Audio ID is required to delete audio file');
+    }
+
+    console.log('Deleting audio file with ID:', audioId);
+
+    // First get the audio file details to delete the file from storage
+    const audioDoc = await database.getDocument(
+      config.db,
+      config.col.audioFiles,
+      audioId
+    );
+
+    const file = audioDoc as unknown as {
+      fileId: string;
+    };
+
+    // Delete the file from storage if it exists
+    if (file.fileId) {
+      console.log('Deleting file from storage:', file.fileId);
+      await storage.deleteFile(config.audio, file.fileId);
+    }
+
+    // Delete the document from database
+    console.log('Deleting document from database:', audioId);
+    await database.deleteDocument(config.db, config.col.audioFiles, audioId);
+
+    console.log('Successfully deleted audio file:', audioId);
+  } catch (err) {
+    console.error('Error deleting audio file:', err);
+    throw new Error('Failed to delete audio file');
+  }
+};

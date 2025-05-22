@@ -24,6 +24,7 @@ import {
 import { database, config, storage } from '../../../lib/appwrite';
 import { Query } from 'react-native-appwrite';
 import { formatFileSize } from '../../../utils/utils';
+import { deleteAudio } from '../../../app/services/audioService';
 
 // Define types based on your Appwrite structure
 interface SectionDoc {
@@ -105,9 +106,19 @@ export default function SectionDetailScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            // Delete logic will be implemented here
-            Alert.alert('Delete', `Audio ${audioId} will be deleted`);
+          onPress: async () => {
+            try {
+              await deleteAudio(audioId);
+              // Refresh the audio files list
+              fetchSectionAndAudioFiles();
+              Alert.alert('Success', 'Audio file deleted successfully');
+            } catch (error) {
+              console.error('Error deleting audio:', error);
+              Alert.alert(
+                'Error',
+                'Failed to delete audio file. Please try again.'
+              );
+            }
           },
         },
       ]
