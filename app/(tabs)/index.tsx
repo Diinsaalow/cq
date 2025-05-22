@@ -18,6 +18,7 @@ import { database, config } from '../../lib/appwrite';
 import { Query } from 'react-native-appwrite';
 import { CategoryData, SectionItem } from '../../types';
 import ErrorState from '../../components/ErrorState';
+import SkeletonCategorySection from '../../components/HomeSkeleton';
 
 async function getAudioFileCount(sectionId: string): Promise<number> {
   try {
@@ -109,17 +110,20 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.centerContent,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textLight }]}>
-          Loading categories...
-        </Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Header title="Diinsaalow" />
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + 20 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {[1, 2, 3].map((index) => (
+            <SkeletonCategorySection key={index} colors={colors} />
+          ))}
+        </ScrollView>
       </View>
     );
   }
