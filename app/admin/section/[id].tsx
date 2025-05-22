@@ -114,10 +114,6 @@ export default function SectionDetailScreen() {
     );
   };
 
-  const handleAudioPress = (audioId: string) => {
-    router.push(`/player?id=${audioId}`);
-  };
-
   const formatDuration = (seconds: number) => {
     if (!seconds) return '00:00';
     const mins = Math.floor(seconds / 60);
@@ -229,7 +225,7 @@ export default function SectionDetailScreen() {
               </View>
             ) : (
               <View style={styles.audioList}>
-                {audioFiles.map((audio) => (
+                {audioFiles.map((audio, index) => (
                   <View
                     key={audio.$id}
                     style={[
@@ -239,7 +235,12 @@ export default function SectionDetailScreen() {
                   >
                     <TouchableOpacity
                       style={styles.audioContent}
-                      onPress={() => handleAudioPress(audio.$id)}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/player',
+                          params: { sectionId: id, audioIndex: index + 1 },
+                        })
+                      }
                     >
                       <View
                         style={[
