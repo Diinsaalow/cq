@@ -5,13 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import getColors from '../../constants/Colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import SectionCard from '../../components/SectionCard';
+import CategorySkeleton from '../../components/CategorySkeleton';
 import { fetchCategoryById } from '../services/categoryService';
 import { fetchSectionsByCategoryId } from '../services/sectionService';
 import { database, config } from '../../lib/appwrite';
@@ -85,23 +85,7 @@ export default function CategoryScreen() {
   };
 
   if (loading) {
-    return (
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: colors.background,
-            justifyContent: 'center',
-            alignItems: 'center',
-          },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.textLight, marginTop: 12 }}>
-          Loading category...
-        </Text>
-      </View>
-    );
+    return <CategorySkeleton />;
   }
 
   if (error || !category) {
