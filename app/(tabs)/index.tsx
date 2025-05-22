@@ -5,6 +5,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Text,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -42,56 +43,61 @@ export default function HomeScreen() {
 
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch categories and their sections
+  const loadData = async () => {
+    try {
+      setError(null);
+
+      // Fetch all categories
+      const categoriesData = await fetchCategories();
+
+      // For each category, fetch its sections
+      const categoriesWithSections = await Promise.all(
+        categoriesData.map(async (category) => {
+          const sections = await fetchSectionsByCategoryId(category.$id);
+
+          // For each section, fetch the actual audio file count
+          const formattedSections: SectionItem[] = await Promise.all(
+            sections.map(async (section) => {
+              const audioCount = await getAudioFileCount(section.$id);
+              return {
+                id: section.$id,
+                title: section.title,
+                subtitle: `${audioCount} audio files`,
+                count: audioCount,
+                imageUrl: section.imageUrl || 'https://via.placeholder.com/300',
+              };
+            })
+          );
+
+          return {
+            id: category.$id,
+            title: category.title,
+            sections: formattedSections,
+          };
+        })
+      );
+
+      setCategories(categoriesWithSections);
+    } catch (err: any) {
+      console.error('Error loading home data:', err);
+      setError(err.message || 'Failed to load categories');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Initial load
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Fetch all categories
-        const categoriesData = await fetchCategories();
-
-        // For each category, fetch its sections
-        const categoriesWithSections = await Promise.all(
-          categoriesData.map(async (category) => {
-            const sections = await fetchSectionsByCategoryId(category.$id);
-
-            // For each section, fetch the actual audio file count
-            const formattedSections: SectionItem[] = await Promise.all(
-              sections.map(async (section) => {
-                const audioCount = await getAudioFileCount(section.$id);
-                return {
-                  id: section.$id,
-                  title: section.title,
-                  subtitle: `${audioCount} audio files`,
-                  count: audioCount,
-                  imageUrl:
-                    section.imageUrl || 'https://via.placeholder.com/300',
-                };
-              })
-            );
-
-            return {
-              id: category.$id,
-              title: category.title,
-              sections: formattedSections,
-            };
-          })
-        );
-
-        setCategories(categoriesWithSections);
-      } catch (err: any) {
-        console.error('Error loading home data:', err);
-        setError(err.message || 'Failed to load categories');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadData();
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
   }, []);
 
   const handleSectionPress = useCallback(
@@ -108,7 +114,7 @@ export default function HomeScreen() {
     [router]
   );
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Header title="Diinsaalow" />
@@ -134,7 +140,10 @@ export default function HomeScreen() {
         <Header title="Diinsaalow" />
         <ErrorState
           message={error}
-          onRetry={() => setLoading(true)}
+          onRetry={() => {
+            setLoading(true);
+            loadData();
+          }}
           retryText="Try Again"
         />
       </View>
@@ -165,6 +174,16 @@ export default function HomeScreen() {
           { paddingBottom: insets.bottom + 20 },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+            title="Pull to refresh"
+            titleColor={colors.textLight}
+          />
+        }
       >
         {categories.map((category) => (
           <CategorySection
