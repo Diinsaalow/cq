@@ -168,11 +168,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       setLoading(true);
+      // Delete the current session from Appwrite
+      await account.deleteSession('current');
+      // Clear AsyncStorage
+      await AsyncStorage.removeItem('userRole');
+      // Reset all state
+      setCurrentUser(null);
       setEmail(null);
       setUsername(null);
       setRole('user');
       setIsAuthenticated(false);
     } catch (err: any) {
+      console.error('Logout error:', err);
       setError(err.message || 'Failed to logout');
     } finally {
       setLoading(false);
