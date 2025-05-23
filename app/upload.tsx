@@ -39,6 +39,7 @@ import { uploadAudioFile } from '../lib/storage';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import OptimizedImage from '../components/OptimizedImage';
+import UploadSkeleton from '../components/UploadSkeleton';
 
 // Helper: map backend category/section to local type
 const mapCategory = (cat: any) => ({
@@ -279,11 +280,7 @@ export default function UploadScreen() {
   }, [uploading]); // Re-run effect when uploading state changes
 
   if (loadingCategories) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <LoadingState message="Loading categories..." />
-      </View>
-    );
+    return <UploadSkeleton />;
   }
 
   if (error) {
