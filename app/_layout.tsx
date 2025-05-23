@@ -1,4 +1,4 @@
-import { Fragment, useEffect } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
@@ -8,16 +8,26 @@ import { AudioProvider } from '../contexts/AudioContext';
 import MiniPlayer from '../components/MiniPlayer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { View, ActivityIndicator } from 'react-native';
+import getColors from '../constants/Colors';
 
 function RootLayoutNav() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: isAuthLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const { theme } = useTheme();
-
-  console.log('Segments', segments);
+  const colors = getColors(theme);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
+    if (!isAuthLoading) {
+      setIsInitialized(true);
+    }
+  }, [isAuthLoading]);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+
     const isAuthRoute = segments[0] === 'login' || segments[0] === 'signup';
 
     if (!isAuthenticated && !isAuthRoute) {
@@ -27,7 +37,7 @@ function RootLayoutNav() {
       // Redirect to home if authenticated and trying to access auth pages
       router.replace('/');
     }
-  }, [isAuthenticated, segments]);
+  }, [isAuthenticated, segments, isInitialized]);
 
   useFrameworkReady();
 
@@ -37,6 +47,21 @@ function RootLayoutNav() {
     segments[0] !== 'player' &&
     segments[0] !== 'login' &&
     segments[0] !== 'signup';
+
+  if (!isInitialized) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <Fragment>
