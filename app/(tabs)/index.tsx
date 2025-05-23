@@ -20,6 +20,7 @@ import { Query } from 'react-native-appwrite';
 import { CategoryData, SectionItem } from '../../types';
 import ErrorState from '../../components/ErrorState';
 import SkeletonCategorySection from '../../components/HomeSkeleton';
+import { useAuth } from '../../contexts/AuthContext';
 
 async function getAudioFileCount(sectionId: string): Promise<number> {
   try {
@@ -40,6 +41,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const colors = getColors(theme);
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
 
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,6 +195,7 @@ export default function HomeScreen() {
             onSectionPress={handleSectionPress}
             onSeeMorePress={handleSeeMorePress}
             home
+            isAdmin={isAdmin}
           />
         ))}
       </ScrollView>

@@ -1,16 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import SectionCard from './SectionCard';
 import SeeMoreButton from './SeeMoreButton';
 import getColors from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { CategoryData } from '../types';
+import { Plus } from 'lucide-react-native';
 
 interface CategorySectionProps {
   data: CategoryData;
   onSectionPress: (id: string) => void;
   onSeeMorePress: (categoryId: string) => void;
   home?: boolean;
+  isAdmin?: boolean;
 }
 
 export default function CategorySection({
@@ -18,9 +20,11 @@ export default function CategorySection({
   onSectionPress,
   onSeeMorePress,
   home = false,
+  isAdmin = false,
 }: CategorySectionProps) {
   const { theme } = useTheme();
   const colors = getColors(theme);
+  const hasSections = data.sections.length > 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -33,29 +37,51 @@ export default function CategorySection({
         />
       </View>
 
-      <View style={styles.sectionsContainer}>
-        {home
-          ? data.sections
-              .slice(0, 3)
-              .map((item, index) => (
-                <SectionCard
-                  key={item.id}
-                  item={item}
-                  onPress={onSectionPress}
-                  index={index}
-                />
-              ))
-          : data.sections.map((item, index) => (
-              <SectionCard
-                key={item.id}
-                item={item}
-                onPress={onSectionPress}
-                index={index}
-              />
-            ))}
-      </View>
-
-      <SeeMoreButton onPress={() => onSeeMorePress(data.id)} />
+      {hasSections ? (
+        <>
+          <View style={styles.sectionsContainer}>
+            {home
+              ? data.sections
+                  .slice(0, 3)
+                  .map((item, index) => (
+                    <SectionCard
+                      key={item.id}
+                      item={item}
+                      onPress={onSectionPress}
+                      index={index}
+                    />
+                  ))
+              : data.sections.map((item, index) => (
+                  <SectionCard
+                    key={item.id}
+                    item={item}
+                    onPress={onSectionPress}
+                    index={index}
+                  />
+                ))}
+          </View>
+          <SeeMoreButton onPress={() => onSeeMorePress(data.id)} />
+        </>
+      ) : (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: colors.textLight }]}>
+            {isAdmin
+              ? 'No sections available yet'
+              : 'No sections available in this category'}
+          </Text>
+          {isAdmin && (
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
+              onPress={() => onSeeMorePress(data.id)}
+            >
+              <Plus size={20} color={colors.white} style={styles.addIcon} />
+              <Text style={[styles.addButtonText, { color: colors.white }]}>
+                Add Section
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -84,5 +110,35 @@ const styles = StyleSheet.create({
   sectionsContainer: {
     gap: 16,
     marginBottom: 12,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  addIcon: {
+    marginRight: 8,
+  },
+  addButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
