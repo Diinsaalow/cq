@@ -6,7 +6,6 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Play, ArrowLeft } from 'lucide-react-native';
@@ -18,6 +17,7 @@ import { fetchAudioFiles } from '../services/audioService';
 import { AudioFile } from '../../types';
 import OptimizedImage from '../../components/OptimizedImage';
 import ErrorState from '../../components/ErrorState';
+import SectionSkeleton from '../../components/SectionSkeleton';
 
 export default function SectionScreen() {
   const params = useLocalSearchParams();
@@ -62,23 +62,7 @@ export default function SectionScreen() {
   }, [id]);
 
   if (loading) {
-    return (
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: colors.background,
-            justifyContent: 'center',
-            alignItems: 'center',
-          },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textLight }]}>
-          Loading section...
-        </Text>
-      </View>
-    );
+    return <SectionSkeleton />;
   }
 
   if (error || !section) {

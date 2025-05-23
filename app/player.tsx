@@ -65,6 +65,22 @@ export default function PlayerScreen() {
     seekTo,
   } = useAudio();
 
+  const handleSeek = useCallback(
+    (event: GestureResponderEvent) => {
+      if (!progressBarRef.current || duration <= 0) return;
+
+      progressBarRef.current.measure((x, y, width, height, pageX, pageY) => {
+        const touchX = event.nativeEvent.pageX;
+        const relativeX = Math.max(0, Math.min(width, touchX - pageX));
+        const seekPercentage = relativeX / width;
+        const newPosition = seekPercentage * duration;
+        setSeekPosition(newPosition);
+        seekTo(newPosition);
+      });
+    },
+    [duration, seekTo]
+  );
+
   // Improved pan responder for seek functionality
   const panResponder = React.useRef(
     PanResponder.create({
@@ -75,40 +91,9 @@ export default function PlayerScreen() {
         if (isPlaying) {
           pauseSound();
         }
-        // Calculate initial seek position
-        if (progressBarRef.current) {
-          progressBarRef.current.measure(
-            (x, y, width, height, pageX, pageY) => {
-              const touchX = event.nativeEvent.pageX;
-              const relativeX = touchX - pageX;
-              const seekPercentage = Math.max(
-                0,
-                Math.min(1, relativeX / width)
-              );
-              const newPosition = seekPercentage * duration;
-              setSeekPosition(newPosition);
-              seekTo(newPosition);
-            }
-          );
-        }
+        handleSeek(event);
       },
-      onPanResponderMove: (event: GestureResponderEvent) => {
-        if (progressBarRef.current) {
-          progressBarRef.current.measure(
-            (x, y, width, height, pageX, pageY) => {
-              const touchX = event.nativeEvent.pageX;
-              const relativeX = touchX - pageX;
-              const seekPercentage = Math.max(
-                0,
-                Math.min(1, relativeX / width)
-              );
-              const newPosition = seekPercentage * duration;
-              setSeekPosition(newPosition);
-              seekTo(newPosition);
-            }
-          );
-        }
-      },
+      onPanResponderMove: handleSeek,
       onPanResponderRelease: () => {
         setIsSeeking(false);
         if (isPlaying) {
