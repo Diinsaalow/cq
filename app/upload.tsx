@@ -10,6 +10,9 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  Modal,
+  Animated,
+  BackHandler,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,6 +27,7 @@ import {
   Check,
   Music,
   ChevronDown,
+  AlertCircle,
 } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -64,6 +68,10 @@ export default function UploadScreen() {
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [modalAnimation] = useState(new Animated.Value(0));
+  const [uploadController, setUploadController] =
+    useState<AbortController | null>(null);
 
   // Log config for debugging
   useEffect(() => {
@@ -149,6 +157,11 @@ export default function UploadScreen() {
     setUploading(true);
     setProgress(0);
     setError(null);
+
+    // Create new AbortController for this upload
+    const controller = new AbortController();
+    setUploadController(controller);
+
     try {
       await uploadAudioFile(
         selectedFile.uri,
@@ -156,8 +169,11 @@ export default function UploadScreen() {
         title,
         selectedSection,
         (progress) => {
+          // Check if upload was cancelled
+          if (controller.signal.aborted) {
+            return;
+          }
           console.log('Progress callback received:', progress);
-          // Calculate progress percentage based on chunks
           const progressPercentage =
             progress.chunksTotal > 0
               ? Math.round(
@@ -173,8 +189,15 @@ export default function UploadScreen() {
           });
 
           setProgress(progressPercentage);
-        }
+        },
+        controller.signal // Pass the signal to uploadAudioFile
       );
+
+      // Check if upload was cancelled
+      if (controller.signal.aborted) {
+        return;
+      }
+
       setUploading(false);
       setProgress(100);
       Alert.alert(
@@ -194,11 +217,66 @@ export default function UploadScreen() {
         ]
       );
     } catch (error) {
+      if (controller.signal.aborted) {
+        console.log('Upload was cancelled');
+        return;
+      }
       console.error('Upload error:', error);
       setUploading(false);
       setError('Failed to upload audio file. Please try again.');
+    } finally {
+      setUploadController(null);
     }
   };
+
+  // Show modal when upload starts
+  useEffect(() => {
+    if (uploading) {
+      setShowUploadModal(true);
+      Animated.spring(modalAnimation, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 7,
+      }).start();
+    } else {
+      Animated.timing(modalAnimation, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => setShowUploadModal(false));
+    }
+  }, [uploading]);
+
+  const handleCancelUpload = async () => {
+    try {
+      if (uploadController) {
+        uploadController.abort();
+        setUploadController(null);
+      }
+      setUploading(false);
+      setProgress(0);
+    } catch (error) {
+      console.error('Error canceling upload:', error);
+      setError('Failed to cancel upload. Please try again.');
+    }
+  };
+
+  // Add BackHandler effect
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (uploading) {
+          setShowUploadModal(true);
+          return true; // Prevent default back behavior
+        }
+        return false; // Allow default back behavior
+      }
+    );
+
+    return () => backHandler.remove(); // Cleanup
+  }, [uploading]); // Re-run effect when uploading state changes
 
   if (loadingCategories) {
     return (
@@ -233,13 +311,125 @@ export default function UploadScreen() {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
+          disabled={uploading}
         >
-          <ArrowLeft color={colors.textDark} size={24} />
+          <ArrowLeft
+            color={uploading ? colors.textLight : colors.textDark}
+            size={24}
+          />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textDark }]}>
           Upload Audio
         </Text>
       </View>
+
+      {/* Upload Progress Modal with Overlay */}
+      {showUploadModal && (
+        <>
+          <TouchableOpacity
+            style={[
+              styles.modalOverlay,
+              { backgroundColor: 'rgba(0,0,0,0.5)' },
+            ]}
+            activeOpacity={1}
+          />
+          <Animated.View
+            style={[
+              styles.floatingModal,
+              {
+                backgroundColor: colors.white,
+                transform: [
+                  {
+                    translateY: modalAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [100, -150],
+                    }),
+                  },
+                ],
+                opacity: modalAnimation,
+              },
+            ]}
+          >
+            <View style={styles.floatingModalContent}>
+              <View style={styles.floatingModalHeader}>
+                <View style={styles.floatingModalTitleContainer}>
+                  <Music size={32} color={colors.primary} />
+                  <Text
+                    style={[
+                      styles.floatingModalTitle,
+                      { color: colors.textDark },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    Uploading Audio
+                  </Text>
+                </View>
+              </View>
+
+              <Text
+                style={[
+                  styles.floatingModalSubtitle,
+                  { color: colors.textLight },
+                ]}
+              >
+                {title}
+              </Text>
+
+              <View style={styles.floatingModalProgress}>
+                <View
+                  style={[
+                    styles.floatingModalProgressBar,
+                    { backgroundColor: colors.lightGray },
+                  ]}
+                >
+                  <Animated.View
+                    style={[
+                      styles.floatingModalProgressFill,
+                      {
+                        width: `${progress}%`,
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.floatingModalProgressText,
+                    { color: colors.textLight },
+                  ]}
+                >
+                  {progress}%
+                </Text>
+              </View>
+
+              <Text
+                style={[styles.floatingModalInfo, { color: colors.textLight }]}
+              >
+                Please keep the app open while uploading. You can cancel the
+                upload at any time.
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.floatingModalCancelButton,
+                  { backgroundColor: colors.error },
+                ]}
+                onPress={handleCancelUpload}
+              >
+                <X size={20} color={colors.white} />
+                <Text
+                  style={[
+                    styles.floatingModalCancelText,
+                    { color: colors.white },
+                  ]}
+                >
+                  Cancel Upload
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </>
+      )}
 
       {/* Overlay for dropdowns (always rendered above content, but below modals) */}
       {(showCategoryModal || showSectionModal) && (
@@ -322,9 +512,11 @@ export default function UploadScreen() {
         </View>
       )}
 
+      {/* Disable scroll and interaction when uploading */}
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.contentContainer}
+        scrollEnabled={!uploading}
       >
         {/* Instructions */}
         <View
@@ -486,31 +678,6 @@ export default function UploadScreen() {
           )}
         </View>
 
-        {/* Upload Progress */}
-        {uploading && (
-          <View style={styles.uploadProgress}>
-            <View
-              style={[
-                styles.progressBar,
-                { backgroundColor: colors.lightGray },
-              ]}
-            >
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${progress}%`,
-                    backgroundColor: colors.primary,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={[styles.progressText, { color: colors.textLight }]}>
-              Uploading... {progress}%
-            </Text>
-          </View>
-        )}
-
         {/* Upload Button */}
         <TouchableOpacity
           style={[
@@ -656,23 +823,6 @@ const styles = StyleSheet.create({
   removeFileButton: {
     padding: 8,
   },
-  uploadProgress: {
-    marginBottom: 20,
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
   uploadButton: {
     borderRadius: 12,
     padding: 16,
@@ -707,5 +857,97 @@ const styles = StyleSheet.create({
     zIndex: 11,
     elevation: 12,
     backgroundColor: 'white',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+  },
+  floatingModal: {
+    position: 'absolute',
+    top: '50%',
+    left: 20,
+    right: 20,
+    transform: [
+      { translateY: -150 }, // Half of the modal's approximate height
+    ],
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  floatingModalContent: {
+    padding: 24,
+  },
+  floatingModalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  floatingModalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  floatingModalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginLeft: 12,
+  },
+  floatingModalSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  floatingModalProgress: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 16,
+  },
+  floatingModalProgressBar: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  floatingModalProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  floatingModalProgressText: {
+    fontSize: 16,
+    fontWeight: '600',
+    minWidth: 48,
+    textAlign: 'right',
+  },
+  floatingModalInfo: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  floatingModalCancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  floatingModalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

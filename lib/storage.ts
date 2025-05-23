@@ -38,7 +38,8 @@ export const uploadAudioFile = async (
   fileName: string,
   title: string,
   sectionId: string,
-  onProgress?: (progress: UploadProgress) => void
+  onProgress?: (progress: UploadProgress) => void,
+  signal?: AbortSignal
 ) => {
   try {
     console.log('=== Starting File Upload ===');
@@ -47,6 +48,11 @@ export const uploadAudioFile = async (
     console.log('Title:', title);
     console.log('Section ID:', sectionId);
     console.log('Bucket ID:', AUDIO_BUCKET_ID);
+
+    // Check if upload was cancelled
+    if (signal?.aborted) {
+      throw new Error('Upload cancelled');
+    }
 
     // Read the file
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
@@ -70,6 +76,11 @@ export const uploadAudioFile = async (
     const duration = await getAudioDuration(fileUri);
     console.log('Audio duration:', duration);
 
+    // Check if upload was cancelled
+    if (signal?.aborted) {
+      throw new Error('Upload cancelled');
+    }
+
     // 1. Upload the file to the audio bucket
     console.log('Attempting to upload file to bucket...');
     const fileUpload = await storage.createFile(
@@ -78,6 +89,10 @@ export const uploadAudioFile = async (
       file,
       undefined, // permissions
       (progress) => {
+        // Check if upload was cancelled
+        if (signal?.aborted) {
+          return;
+        }
         console.log('Raw progress from Appwrite:', progress);
         if (onProgress) {
           // Ensure we pass the complete UploadProgress object
@@ -91,6 +106,18 @@ export const uploadAudioFile = async (
         }
       }
     );
+
+    // Check if upload was cancelled
+    if (signal?.aborted) {
+      // Delete the uploaded file if it was cancelled
+      try {
+        await storage.deleteFile(AUDIO_BUCKET_ID, fileUpload.$id);
+      } catch (e) {
+        console.error('Error deleting cancelled upload:', e);
+      }
+      throw new Error('Upload cancelled');
+    }
+
     console.log('File upload successful:', fileUpload);
 
     // 2. Create a database entry linking to this file
@@ -101,7 +128,7 @@ export const uploadAudioFile = async (
       ID.unique(),
       {
         title: title,
-        sectionId: sectionId, // Wrap sectionId in an array since it's a relationship field
+        sectionId: sectionId,
         fileId: fileUpload.$id,
         fileName: fileName,
         fileSize: fileInfo.size,
@@ -109,6 +136,23 @@ export const uploadAudioFile = async (
         duration,
       }
     );
+
+    // Check if upload was cancelled
+    if (signal?.aborted) {
+      // Delete both the file and the database entry
+      try {
+        await storage.deleteFile(AUDIO_BUCKET_ID, fileUpload.$id);
+        await database.deleteDocument(
+          config.db,
+          config.col.audioFiles,
+          audioRecord.$id
+        );
+      } catch (e) {
+        console.error('Error cleaning up cancelled upload:', e);
+      }
+      throw new Error('Upload cancelled');
+    }
+
     console.log('Database entry created:', audioRecord);
 
     return {
