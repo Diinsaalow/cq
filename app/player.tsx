@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
+  PanResponder,
+  GestureResponderEvent,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -43,6 +45,9 @@ export default function PlayerScreen() {
   const [section, setSection] = useState<any | null>(null);
   const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekPosition, setSeekPosition] = useState(0);
+  const progressBarRef = useRef<View>(null);
 
   // Get audio context
   const {
@@ -57,7 +62,61 @@ export default function PlayerScreen() {
     resumeSound,
     nextTrackRef,
     previousTrackRef,
+    seekTo,
   } = useAudio();
+
+  // Improved pan responder for seek functionality
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (event: GestureResponderEvent) => {
+        setIsSeeking(true);
+        if (isPlaying) {
+          pauseSound();
+        }
+        // Calculate initial seek position
+        if (progressBarRef.current) {
+          progressBarRef.current.measure(
+            (x, y, width, height, pageX, pageY) => {
+              const touchX = event.nativeEvent.pageX;
+              const relativeX = touchX - pageX;
+              const seekPercentage = Math.max(
+                0,
+                Math.min(1, relativeX / width)
+              );
+              const newPosition = seekPercentage * duration;
+              setSeekPosition(newPosition);
+              seekTo(newPosition);
+            }
+          );
+        }
+      },
+      onPanResponderMove: (event: GestureResponderEvent) => {
+        if (progressBarRef.current) {
+          progressBarRef.current.measure(
+            (x, y, width, height, pageX, pageY) => {
+              const touchX = event.nativeEvent.pageX;
+              const relativeX = touchX - pageX;
+              const seekPercentage = Math.max(
+                0,
+                Math.min(1, relativeX / width)
+              );
+              const newPosition = seekPercentage * duration;
+              setSeekPosition(newPosition);
+              seekTo(newPosition);
+            }
+          );
+        }
+      },
+      onPanResponderRelease: () => {
+        setIsSeeking(false);
+        if (isPlaying) {
+          resumeSound();
+        }
+      },
+    })
+  ).current;
 
   // Load section and audio data
   useEffect(() => {
@@ -295,13 +354,32 @@ export default function PlayerScreen() {
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
         <View
+          ref={progressBarRef}
+          {...panResponder.panHandlers}
           style={[styles.progressBar, { backgroundColor: colors.lightGray }]}
         >
           <View
             style={[
               styles.progress,
               {
-                width: `${duration > 0 ? (position / duration) * 100 : 0}%`,
+                width: `${
+                  duration > 0
+                    ? ((isSeeking ? seekPosition : position) / duration) * 100
+                    : 0
+                }%`,
+                backgroundColor: colors.primary,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.seekHandle,
+              {
+                left: `${
+                  duration > 0
+                    ? ((isSeeking ? seekPosition : position) / duration) * 100
+                    : 0
+                }%`,
                 backgroundColor: colors.primary,
               },
             ]}
@@ -309,7 +387,7 @@ export default function PlayerScreen() {
         </View>
         <View style={styles.timeContainer}>
           <Text style={[styles.timeText, { color: colors.textLight }]}>
-            {formatTime(position)}
+            {formatTime(isSeeking ? seekPosition : position)}
           </Text>
           <Text style={[styles.timeText, { color: colors.textLight }]}>
             {formatTime(duration)}
@@ -429,10 +507,27 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 10,
     marginBottom: 8,
+    position: 'relative',
   },
   progress: {
     height: '100%',
     borderRadius: 2,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  seekHandle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    position: 'absolute',
+    top: -5,
+    transform: [{ translateX: -8 }],
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   timeContainer: {
     flexDirection: 'row',

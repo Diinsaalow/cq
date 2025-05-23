@@ -27,6 +27,7 @@ interface AudioContextType {
   stopSound: () => Promise<void>;
   playNext: () => Promise<void>;
   playPrevious: () => Promise<void>;
+  seekTo: (position: number) => Promise<void>;
   position: number;
   duration: number;
   loading: boolean;
@@ -234,6 +235,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const seekTo = async (position: number) => {
+    try {
+      if (currentSound) {
+        const positionMillis = position * 1000; // Convert seconds to milliseconds
+        await currentSound.setPositionAsync(positionMillis);
+        setPosition(position);
+      }
+    } catch (error) {
+      console.error('Error seeking to position:', error);
+    }
+  };
+
   const value: AudioContextType = {
     currentSound,
     isPlaying,
@@ -246,6 +259,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     stopSound,
     playNext,
     playPrevious,
+    seekTo,
     position,
     duration,
     loading,
