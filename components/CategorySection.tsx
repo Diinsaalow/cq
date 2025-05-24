@@ -60,7 +60,9 @@ export default function CategorySection({
                   />
                 ))}
           </View>
-          <SeeMoreButton onPress={() => onSeeMorePress(data.id)} />
+          {data.sections.length > 3 && (
+            <SeeMoreButton onPress={() => onSeeMorePress(data.id)} />
+          )}
         </>
       ) : (
         <View style={styles.emptyContainer}>

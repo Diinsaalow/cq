@@ -29,6 +29,7 @@ import { fetchSectionById } from './services/sectionService';
 import { fetchAudioFiles } from './services/audioService';
 import { AudioFile } from '../types';
 import { getImageUrl } from '../utils/utils';
+import PlayerSkeleton from '../components/PlayerSkeleton';
 
 const { width } = Dimensions.get('window');
 
@@ -271,11 +272,7 @@ export default function PlayerScreen() {
   };
 
   if (isLoadingData) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <LoadingState message="Loading audio data..." />
-      </View>
-    );
+    return <PlayerSkeleton />;
   }
 
   if (!section || audioFiles.length === 0) {
