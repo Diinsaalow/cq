@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import { Play, Pause } from 'lucide-react-native';
-import { useAudio } from '../contexts/AudioContext';
+import { useAudioStore } from '../contexts/audioStore';
 import getColors from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
@@ -40,7 +40,7 @@ export default function MiniPlayer() {
     pauseSound,
     resumeSound,
     stopSound,
-  } = useAudio();
+  } = useAudioStore();
 
   const translateX = useSharedValue(0);
   const isVisible = useSharedValue(true);

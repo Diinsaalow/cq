@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import getColors from '../../constants/Colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Search, Play, Pause } from 'lucide-react-native';
-import { useAudio } from '../../contexts/AudioContext';
+import { useAudioStore } from '../../contexts/audioStore';
 import { fetchCategories } from '../services/categoryService';
 import { fetchSectionsByCategoryId } from '../services/sectionService';
 import { database, config } from '../../lib/appwrite';
@@ -55,8 +55,18 @@ export default function LibraryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { currentAudio, isPlaying, playSound, pauseSound, resumeSound } =
-    useAudio();
+  
+  // Use Zustand store instead of context
+  const { 
+    currentAudio, 
+    isPlaying, 
+    playSound, 
+    pauseSound, 
+    resumeSound,
+    loading: audioLoading,
+    error: audioError
+  } = useAudioStore();
+  
   const { theme } = useTheme();
   const colors = getColors(theme);
 
@@ -123,19 +133,30 @@ export default function LibraryScreen() {
   };
 
   const handlePlayAudio = async (
-    audio: any,
+    section: SectionItem,
     sectionId: string,
     index: number
   ) => {
-    if (currentAudio?.id === audio.id) {
-      isPlaying ? pauseSound() : resumeSound();
+    // Create a mock AudioFile object from the section data
+    // Note: You might need to adjust this based on your actual AudioFile type
+    const audioFile = {
+      id: section.id,
+      title: section.title,
+      url: section.imageUrl, // This might need to be changed to actual audio URL
+      duration: 0, // You might want to fetch this
+      // Add other required AudioFile properties
+    };
+
+    if (currentAudio?.id === section.id) {
+      isPlaying ? await pauseSound() : await resumeSound();
     } else {
-      await playSound(audio, sectionId, index);
+      await playSound(audioFile, sectionId, index);
     }
   };
 
   const renderSectionItem = ({ item }: { item: SectionItem }) => {
     const isCurrentlyPlaying = currentAudio?.id === item.id && isPlaying;
+    const isCurrentAudioLoading = currentAudio?.id === item.id && audioLoading;
 
     return (
       <TouchableOpacity
@@ -156,10 +177,19 @@ export default function LibraryScreen() {
           </Text>
         </View>
         <TouchableOpacity
-          style={[styles.playButton, { backgroundColor: colors.primary }]}
+          style={[
+            styles.playButton, 
+            { 
+              backgroundColor: colors.primary,
+              opacity: isCurrentAudioLoading ? 0.6 : 1
+            }
+          ]}
           onPress={() => handlePlayAudio(item, item.id, 0)}
+          disabled={isCurrentAudioLoading}
         >
-          {isCurrentlyPlaying ? (
+          {isCurrentAudioLoading ? (
+            <View style={styles.loadingIndicator} />
+          ) : isCurrentlyPlaying ? (
             <Pause size={16} color={colors.white} />
           ) : (
             <Play size={16} color={colors.white} />
@@ -168,6 +198,14 @@ export default function LibraryScreen() {
       </TouchableOpacity>
     );
   };
+
+  // Show audio error if exists
+  useEffect(() => {
+    if (audioError) {
+      console.warn('Audio Error:', audioError);
+      // You might want to show a toast or alert here
+    }
+  }, [audioError]);
 
   if (loading && !refreshing) {
     return <LibrarySkeleton />;
@@ -334,6 +372,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     marginLeft: 12,
+  },
+  loadingIndicator: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderTopColor: 'transparent',
+    // You might want to add animation here
   },
   centerContent: {
     flex: 1,

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Dimensions,
   PanResponder,
   GestureResponderEvent,
@@ -16,11 +15,10 @@ import {
   Play,
   Pause,
   SkipForward,
-  Volume2,
 } from 'lucide-react-native';
 import getColors from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
-import { useAudio } from '../contexts/AudioContext';
+import { useAudioStore } from '../contexts/audioStore';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import OptimizedImage from '../components/OptimizedImage';
@@ -42,15 +40,15 @@ export default function PlayerScreen() {
 
   const { theme } = useTheme();
   const colors = getColors(theme);
+
+  // Local state
   const [error, setError] = useState<string | null>(null);
   const [section, setSection] = useState<any | null>(null);
   const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isSeeking, setIsSeeking] = useState(false);
-  const [seekPosition, setSeekPosition] = useState(0);
   const progressBarRef = useRef<View>(null);
 
-  // Get audio context
+  // Zustand store
   const {
     isPlaying,
     position,
@@ -58,13 +56,18 @@ export default function PlayerScreen() {
     loading,
     currentAudioIndex,
     currentSectionId,
+    isSeeking,
+    seekPosition,
     playSound,
     pauseSound,
     resumeSound,
-    nextTrackRef,
-    previousTrackRef,
     seekTo,
-  } = useAudio();
+    setIsSeeking,
+    setSeekPosition,
+    setNextTrackHandler,
+    setPreviousTrackHandler,
+    error: audioError,
+  } = useAudioStore();
 
   const handleSeek = useCallback(
     (event: GestureResponderEvent) => {
@@ -76,30 +79,25 @@ export default function PlayerScreen() {
         const seekPercentage = relativeX / width;
         const newPosition = seekPercentage * duration;
         setSeekPosition(newPosition);
-        seekTo(newPosition);
       });
     },
-    [duration, seekTo]
+    [duration, setSeekPosition]
   );
 
-  // Improved pan responder for seek functionality
+  // Pan responder for seek functionality
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (event: GestureResponderEvent) => {
         setIsSeeking(true);
-        if (isPlaying) {
-          pauseSound();
-        }
         handleSeek(event);
       },
       onPanResponderMove: handleSeek,
-      onPanResponderRelease: () => {
+      onPanResponderRelease: async () => {
+        const currentSeekPosition = useAudioStore.getState().seekPosition;
+        await seekTo(currentSeekPosition);
         setIsSeeking(false);
-        if (isPlaying) {
-          resumeSound();
-        }
       },
     })
   ).current;
@@ -145,13 +143,14 @@ export default function PlayerScreen() {
     }
   }, [currentAudioIndex, audioFiles]);
 
-  // Syncing the player screen with the current context state
+  // Initialize audio
   useEffect(() => {
     const initializeAudio = async () => {
       try {
         if (isLoadingData || audioFiles.length === 0 || !sectionId) return;
 
         setError(null);
+
         // If this is a new section or the user manually navigated to a different track
         if (
           section &&
@@ -178,7 +177,83 @@ export default function PlayerScreen() {
     };
 
     initializeAudio();
-  }, [sectionId, audioIndex, audioFiles, isLoadingData]);
+  }, [
+    sectionId,
+    audioIndex,
+    audioFiles,
+    isLoadingData,
+    section,
+    currentSectionId,
+    currentAudioIndex,
+    playSound,
+  ]);
+
+  // Track handlers
+  const handleNext = useCallback(async () => {
+    if (!sectionId || currentAudioIndex >= audioFiles.length - 1) return;
+
+    try {
+      setError(null);
+      const nextAudio = audioFiles[currentAudioIndex + 1];
+      if (nextAudio) {
+        const cachedUrl = await cacheAudioFile(
+          nextAudio.url,
+          `${nextAudio.id}.mp3`
+        );
+        await playSound(
+          { ...nextAudio, url: cachedUrl },
+          sectionId,
+          currentAudioIndex + 1
+        );
+      }
+    } catch (err) {
+      console.error('Error playing next track:', err);
+      setError('Failed to play next track. Please try again.');
+    }
+  }, [currentAudioIndex, audioFiles, sectionId, playSound]);
+
+  const handlePrevious = useCallback(async () => {
+    if (!sectionId || currentAudioIndex <= 0) return;
+
+    try {
+      setError(null);
+      const prevAudio = audioFiles[currentAudioIndex - 1];
+      if (prevAudio) {
+        const cachedUrl = await cacheAudioFile(
+          prevAudio.url,
+          `${prevAudio.id}.mp3`
+        );
+        await playSound(
+          { ...prevAudio, url: cachedUrl },
+          sectionId,
+          currentAudioIndex - 1
+        );
+      }
+    } catch (err) {
+      console.error('Error playing previous track:', err);
+      setError('Failed to play previous track. Please try again.');
+    }
+  }, [currentAudioIndex, audioFiles, sectionId, playSound]);
+
+  // Register track handlers
+  useEffect(() => {
+    if (section && audioFiles.length > 0) {
+      setNextTrackHandler(handleNext);
+      setPreviousTrackHandler(handlePrevious);
+    }
+
+    return () => {
+      setNextTrackHandler(null);
+      setPreviousTrackHandler(null);
+    };
+  }, [
+    section,
+    audioFiles,
+    handleNext,
+    handlePrevious,
+    setNextTrackHandler,
+    setPreviousTrackHandler,
+  ]);
 
   const handlePlayPause = async () => {
     try {
@@ -193,76 +268,6 @@ export default function PlayerScreen() {
       setError('Failed to control playback. Please try again.');
     }
   };
-
-  const handlePrevious = useCallback(async () => {
-    if (!sectionId) return;
-
-    try {
-      setError(null);
-      if (currentAudioIndex > 0) {
-        const prevAudio = audioFiles[currentAudioIndex - 1];
-        if (prevAudio) {
-          const cachedUrl = await cacheAudioFile(
-            prevAudio.url,
-            `${prevAudio.id}.mp3`
-          );
-          await playSound(
-            { ...prevAudio, url: cachedUrl },
-            sectionId,
-            currentAudioIndex - 1
-          );
-        }
-      }
-    } catch (err) {
-      console.error('Error playing previous track:', err);
-      setError('Failed to play previous track. Please try again.');
-    }
-  }, [currentAudioIndex, audioFiles, sectionId, playSound]);
-
-  const handleNext = useCallback(async () => {
-    if (!sectionId) return;
-
-    try {
-      setError(null);
-      if (currentAudioIndex < audioFiles.length - 1) {
-        const nextAudio = audioFiles[currentAudioIndex + 1];
-        if (nextAudio) {
-          const cachedUrl = await cacheAudioFile(
-            nextAudio.url,
-            `${nextAudio.id}.mp3`
-          );
-          await playSound(
-            { ...nextAudio, url: cachedUrl },
-            sectionId,
-            currentAudioIndex + 1
-          );
-        }
-      }
-    } catch (err) {
-      console.error('Error playing next track:', err);
-      setError('Failed to play next track. Please try again.');
-    }
-  }, [currentAudioIndex, audioFiles, sectionId, playSound]);
-
-  // Register next/previous handlers
-  useEffect(() => {
-    if (section && audioFiles.length > 0) {
-      nextTrackRef.current = handleNext;
-      previousTrackRef.current = handlePrevious;
-    }
-
-    return () => {
-      nextTrackRef.current = async () => {};
-      previousTrackRef.current = async () => {};
-    };
-  }, [
-    section,
-    audioFiles,
-    handleNext,
-    handlePrevious,
-    nextTrackRef,
-    previousTrackRef,
-  ]);
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds: number) => {
@@ -283,15 +288,18 @@ export default function PlayerScreen() {
     );
   }
 
-  if (error) {
+  if (error || audioError) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ErrorState message={error} onRetry={handlePlayPause} />
+        <ErrorState
+          message={error || audioError || 'Unknown error'}
+          onRetry={handlePlayPause}
+        />
       </View>
     );
   }
 
-  // Current playing audio (based on context state)
+  // Current playing audio
   const currentAudio = audioFiles[currentAudioIndex];
 
   return (
@@ -421,14 +429,6 @@ export default function PlayerScreen() {
           />
         </TouchableOpacity>
       </View>
-
-      {/* Volume Control */}
-      {/* <View style={styles.volumeContainer}>
-        <Volume2 size={20} color={colors.textLight} />
-        <View style={[styles.volumeBar, { backgroundColor: colors.lightGray }]}>
-          <View style={[styles.volumeLevel, { backgroundColor: colors.primary }]} />
-        </View>
-      </View> */}
     </View>
   );
 }
@@ -535,21 +535,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
-  },
-  volumeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  volumeBar: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    marginLeft: 12,
-  },
-  volumeLevel: {
-    width: '70%',
-    height: '100%',
-    borderRadius: 2,
   },
 });

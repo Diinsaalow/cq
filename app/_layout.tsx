@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import { AudioProvider } from '../contexts/AudioContext';
 import MiniPlayer from '../components/MiniPlayer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -88,9 +87,7 @@ export default function RootLayout() {
     <ThemeProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <AuthProvider>
-          <AudioProvider>
-            <RootLayoutNav />
-          </AudioProvider>
+          <RootLayoutNav />
         </AuthProvider>
       </GestureHandlerRootView>
     </ThemeProvider>
