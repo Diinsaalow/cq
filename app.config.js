@@ -49,6 +49,8 @@ export default {
           filePermission: 'Allow Diinsaalow to access your files.',
         },
       ],
+      'expo-font',
+      'expo-router',
     ],
     extra: {
       eas: {
@@ -66,11 +68,6 @@ export default {
     // Enable new architecture
     experiments: {
       tsconfigPaths: true,
-    },
-    // Cache configuration
-    cache: {
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      maxSize: 50 * 1024 * 1024, // 50MB
     },
   },
 };

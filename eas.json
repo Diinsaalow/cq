@@ -20,7 +20,8 @@
     "production": {
       "autoIncrement": true,
       "android": {
-        "gradleCommand": ":app:bundleRelease"
+        "gradleCommand": ":app:assembleRelease",
+        "buildType": "apk"
       }
     }
   },
