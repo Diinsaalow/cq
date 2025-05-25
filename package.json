@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "EXPO_NO_TELEMETRY=1 expo start",
     "build:web": "expo export --platform web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
@@ -36,7 +39,7 @@
     "moti": "^0.30.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-native": "0.76.6",
+    "react-native": "0.76.9",
     "react-native-appwrite": "^0.9.0",
     "react-native-gesture-handler": "^2.23.0",
     "react-native-reanimated": "~3.16.1",

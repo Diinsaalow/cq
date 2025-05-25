@@ -52,9 +52,10 @@ export default {
     ],
     extra: {
       eas: {
-        projectId: 'your-project-id',
+        projectId: '2cbc6538-e566-4c36-a73d-55d347af4471',
       },
     },
+    owner: 'diinsaalow',
     // Performance optimizations
     updates: {
       fallbackToCacheTimeout: 0,
