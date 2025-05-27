@@ -5,7 +5,7 @@ export default {
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icons/icon.png',
-    userInterfaceStyle: 'automatic',
+    userInterfaceStyle: 'light',
     splash: {
       image: './assets/icons/icon.png',
       resizeMode: 'contain',
