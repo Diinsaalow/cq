@@ -201,43 +201,53 @@ export default function PlayerScreen() {
 
   // Load section and audio data
   useEffect(() => {
+    let isMounted = true;
+
     const loadData = async () => {
       try {
+        // Don't show loading state if we're already playing this audio
+        const isSameAudio =
+          sectionId === currentSectionId && audioIndex === currentAudioIndex;
+        if (!isSameAudio) {
+          setIsLoadingData(true);
+        }
         setError(null);
-        setIsLoadingData(true);
 
         if (!sectionId) {
           throw new Error('Section ID is missing');
         }
 
-        console.log('Loading section with ID:', sectionId);
+        // Only fetch if we don't have the data or if it's a different section/audio
+        if (!section || !isSameAudio) {
+          console.log('Loading section with ID:', sectionId);
 
-        // If we're already playing the same audio, we still need to load the data
-        // but we can skip showing the loading state
-        const isSameAudio =
-          sectionId === currentSectionId && audioIndex === currentAudioIndex;
+          const [sectionData, files] = await Promise.all([
+            fetchSectionById(sectionId),
+            fetchAudioFiles(sectionId),
+          ]);
 
-        // Fetch section data
-        const sectionData = await fetchSectionById(sectionId);
-        setSection(sectionData);
-
-        // Fetch audio files for this section
-        const files = await fetchAudioFiles(sectionId);
-        setAudioFiles(files);
-
-        // If it's the same audio, we can skip the loading state
-        if (isSameAudio) {
-          setIsLoadingData(false);
+          if (isMounted) {
+            setSection(sectionData);
+            setAudioFiles(files);
+          }
         }
       } catch (err: any) {
         console.error('Error loading data:', err);
-        setError(err.message || 'Failed to load audio data');
+        if (isMounted) {
+          setError(err.message || 'Failed to load audio data');
+        }
       } finally {
-        setIsLoadingData(false);
+        if (isMounted) {
+          setIsLoadingData(false);
+        }
       }
     };
 
     loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [sectionId, audioIndex, currentSectionId, currentAudioIndex]);
 
   // Preload next audio file
@@ -383,14 +393,17 @@ export default function PlayerScreen() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  if (
+  // Show loading state only if we're loading new data
+  const shouldShowLoading =
     isLoadingData &&
-    !(sectionId === currentSectionId && audioIndex === currentAudioIndex)
-  ) {
+    !(sectionId === currentSectionId && audioIndex === currentAudioIndex);
+
+  if (shouldShowLoading) {
     return <PlayerSkeleton />;
   }
 
-  if (!section || audioFiles.length === 0) {
+  // Only show error if we don't have data and we're not loading
+  if ((!section || audioFiles.length === 0) && !isLoadingData) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ErrorState message="Section or audio files not found" />
@@ -398,155 +411,169 @@ export default function PlayerScreen() {
     );
   }
 
-  if (error || audioError) {
+  // If we have data or we're loading the same audio, show the player
+  if (section && audioFiles.length > 0) {
+    // Current playing audio
+    const currentAudio = audioFiles[currentAudioIndex];
+
+    if (error || audioError) {
+      return (
+        <View
+          style={[styles.container, { backgroundColor: colors.background }]}
+        >
+          <ErrorState
+            message={error || audioError || 'Unknown error'}
+            onRetry={handlePlayPause}
+          />
+        </View>
+      );
+    }
+
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ErrorState
-          message={error || audioError || 'Unknown error'}
-          onRetry={handlePlayPause}
-        />
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.lightGray }]}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft color={colors.textDark} size={24} />
+          </TouchableOpacity>
+          <View style={styles.headerText}>
+            <Text style={[styles.headerTitle, { color: colors.textLight }]}>
+              Now Playing
+            </Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textDark }]}>
+              {section.title}
+            </Text>
+          </View>
+        </View>
+
+        {/* Album Art */}
+        <View style={styles.albumArtContainer}>
+          <OptimizedImage
+            source={{ uri: getImageUrl(section.imageUrl) }}
+            style={styles.albumArt}
+            resizeMode="cover"
+          />
+        </View>
+
+        {/* Track Info */}
+        <View style={styles.trackInfo}>
+          <Text style={[styles.trackTitle, { color: colors.textDark }]}>
+            {currentAudio?.title || `Audio ${currentAudioIndex + 1}`}
+          </Text>
+          <Text style={[styles.trackSubtitle, { color: colors.textLight }]}>
+            {section.title}
+          </Text>
+        </View>
+
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={handleProgressBarTap}
+            style={styles.progressBarWrapper}
+          >
+            <View
+              ref={progressBarRef}
+              {...panResponder.panHandlers}
+              style={[
+                styles.progressBar,
+                { backgroundColor: colors.lightGray },
+              ]}
+            >
+              <View
+                style={[
+                  styles.progress,
+                  {
+                    width: `${
+                      duration > 0
+                        ? ((isSeeking ? seekPosition : position) / duration) *
+                          100
+                        : 0
+                    }%`,
+                    backgroundColor: colors.primary,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.seekHandle,
+                  {
+                    left: `${
+                      duration > 0
+                        ? ((isSeeking ? seekPosition : position) / duration) *
+                          100
+                        : 0
+                    }%`,
+                    backgroundColor: colors.primary,
+                  },
+                ]}
+              />
+            </View>
+          </TouchableOpacity>
+          <View style={styles.timeContainer}>
+            <Text style={[styles.timeText, { color: colors.textLight }]}>
+              {formatTime(isSeeking ? seekPosition : position)}
+            </Text>
+            <Text style={[styles.timeText, { color: colors.textLight }]}>
+              {formatTime(duration)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Controls */}
+        <View style={styles.controls}>
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={handlePrevious}
+            disabled={currentAudioIndex === 0}
+          >
+            <SkipBack
+              size={32}
+              color={
+                currentAudioIndex === 0 ? colors.textLight : colors.textDark
+              }
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.playButton,
+              {
+                backgroundColor: colors.primary,
+                shadowColor: colors.primary,
+              },
+            ]}
+            onPress={handlePlayPause}
+            disabled={loading}
+          >
+            {isPlaying ? (
+              <Pause size={32} color={colors.white} />
+            ) : (
+              <Play size={32} color={colors.white} />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.controlButton}
+            onPress={handleNext}
+            disabled={currentAudioIndex === audioFiles.length - 1}
+          >
+            <SkipForward
+              size={32}
+              color={
+                currentAudioIndex === audioFiles.length - 1
+                  ? colors.textLight
+                  : colors.textDark
+              }
+            />
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
-  // Current playing audio
-  const currentAudio = audioFiles[currentAudioIndex];
-
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backButton, { backgroundColor: colors.lightGray }]}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft color={colors.textDark} size={24} />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={[styles.headerTitle, { color: colors.textLight }]}>
-            Now Playing
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textDark }]}>
-            {section.title}
-          </Text>
-        </View>
-      </View>
-
-      {/* Album Art */}
-      <View style={styles.albumArtContainer}>
-        <OptimizedImage
-          source={{ uri: getImageUrl(section.imageUrl) }}
-          style={styles.albumArt}
-          resizeMode="cover"
-        />
-      </View>
-
-      {/* Track Info */}
-      <View style={styles.trackInfo}>
-        <Text style={[styles.trackTitle, { color: colors.textDark }]}>
-          {currentAudio?.title || `Audio ${currentAudioIndex + 1}`}
-        </Text>
-        <Text style={[styles.trackSubtitle, { color: colors.textLight }]}>
-          {section.title}
-        </Text>
-      </View>
-
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={handleProgressBarTap}
-          style={styles.progressBarWrapper}
-        >
-          <View
-            ref={progressBarRef}
-            {...panResponder.panHandlers}
-            style={[styles.progressBar, { backgroundColor: colors.lightGray }]}
-          >
-            <View
-              style={[
-                styles.progress,
-                {
-                  width: `${
-                    duration > 0
-                      ? ((isSeeking ? seekPosition : position) / duration) * 100
-                      : 0
-                  }%`,
-                  backgroundColor: colors.primary,
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.seekHandle,
-                {
-                  left: `${
-                    duration > 0
-                      ? ((isSeeking ? seekPosition : position) / duration) * 100
-                      : 0
-                  }%`,
-                  backgroundColor: colors.primary,
-                },
-              ]}
-            />
-          </View>
-        </TouchableOpacity>
-        <View style={styles.timeContainer}>
-          <Text style={[styles.timeText, { color: colors.textLight }]}>
-            {formatTime(isSeeking ? seekPosition : position)}
-          </Text>
-          <Text style={[styles.timeText, { color: colors.textLight }]}>
-            {formatTime(duration)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Controls */}
-      <View style={styles.controls}>
-        <TouchableOpacity
-          style={styles.controlButton}
-          onPress={handlePrevious}
-          disabled={currentAudioIndex === 0}
-        >
-          <SkipBack
-            size={32}
-            color={currentAudioIndex === 0 ? colors.textLight : colors.textDark}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.playButton,
-            {
-              backgroundColor: colors.primary,
-              shadowColor: colors.primary,
-            },
-          ]}
-          onPress={handlePlayPause}
-          disabled={loading}
-        >
-          {isPlaying ? (
-            <Pause size={32} color={colors.white} />
-          ) : (
-            <Play size={32} color={colors.white} />
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.controlButton}
-          onPress={handleNext}
-          disabled={currentAudioIndex === audioFiles.length - 1}
-        >
-          <SkipForward
-            size={32}
-            color={
-              currentAudioIndex === audioFiles.length - 1
-                ? colors.textLight
-                : colors.textDark
-            }
-          />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({
