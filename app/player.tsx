@@ -212,6 +212,11 @@ export default function PlayerScreen() {
 
         console.log('Loading section with ID:', sectionId);
 
+        // If we're already playing the same audio, we still need to load the data
+        // but we can skip showing the loading state
+        const isSameAudio =
+          sectionId === currentSectionId && audioIndex === currentAudioIndex;
+
         // Fetch section data
         const sectionData = await fetchSectionById(sectionId);
         setSection(sectionData);
@@ -219,6 +224,11 @@ export default function PlayerScreen() {
         // Fetch audio files for this section
         const files = await fetchAudioFiles(sectionId);
         setAudioFiles(files);
+
+        // If it's the same audio, we can skip the loading state
+        if (isSameAudio) {
+          setIsLoadingData(false);
+        }
       } catch (err: any) {
         console.error('Error loading data:', err);
         setError(err.message || 'Failed to load audio data');
@@ -228,7 +238,7 @@ export default function PlayerScreen() {
     };
 
     loadData();
-  }, [sectionId]);
+  }, [sectionId, audioIndex, currentSectionId, currentAudioIndex]);
 
   // Preload next audio file
   useEffect(() => {
@@ -373,7 +383,10 @@ export default function PlayerScreen() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  if (isLoadingData) {
+  if (
+    isLoadingData &&
+    !(sectionId === currentSectionId && audioIndex === currentAudioIndex)
+  ) {
     return <PlayerSkeleton />;
   }
 
