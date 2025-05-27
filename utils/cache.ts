@@ -149,23 +149,64 @@ export const downloadAudioFile = async (
       await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
     }
 
+    console.log('Starting download from:', url);
+    console.log('Saving to:', fileUri);
+
+    let lastBytesWritten = 0;
+    let progress = 0;
+    let lastProgressUpdate = 0;
+
     // Download the file with progress tracking
-    const downloadResult = await FileSystem.createDownloadResumable(
+    const downloadResumable = FileSystem.createDownloadResumable(
       url,
       fileUri,
-      {},
+      {
+        md5: false,
+      },
       (downloadProgress) => {
-        const progress =
-          downloadProgress.totalBytesWritten /
-          downloadProgress.totalBytesExpectedToWrite;
-        if (onProgress) {
-          onProgress(progress);
+        const bytesWritten = downloadProgress.totalBytesWritten;
+        const bytesDelta = bytesWritten - lastBytesWritten;
+
+        // Only update progress if we've downloaded a significant chunk
+        if (bytesDelta > 0) {
+          // Calculate progress based on the size of the chunk relative to a reasonable estimate
+          // We use 10MB as a base estimate since most audio files are in this range
+          const chunkProgress = bytesDelta / (10 * 1024 * 1024);
+
+          // Increment progress by a small amount for each chunk
+          progress = Math.min(0.99, progress + chunkProgress);
+          lastBytesWritten = bytesWritten;
+
+          // Only update UI if progress has changed by at least 1%
+          const progressPercent = Math.floor(progress * 100);
+          if (progressPercent > lastProgressUpdate) {
+            lastProgressUpdate = progressPercent;
+            console.log('Download progress:', {
+              bytesWritten,
+              bytesDelta,
+              progress: progressPercent,
+            });
+
+            if (onProgress) {
+              onProgress(progress);
+            }
+          }
         }
       },
-    ).downloadAsync();
+    );
 
-    if (downloadResult.status !== 200) {
+    // Start the download
+    console.log('Starting download...');
+    const downloadResult = await downloadResumable.downloadAsync();
+    console.log('Download completed:', downloadResult);
+
+    if (!downloadResult || downloadResult.status !== 200) {
       throw new Error('Download failed');
+    }
+
+    // Ensure we send 100% progress at the end
+    if (onProgress) {
+      onProgress(1);
     }
 
     return fileUri;

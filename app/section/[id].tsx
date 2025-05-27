@@ -37,6 +37,9 @@ export default function SectionScreen() {
   const [downloadedFiles, setDownloadedFiles] = useState<{
     [key: string]: boolean;
   }>({});
+  const [downloadProgress, setDownloadProgress] = useState<{
+    [key: string]: number;
+  }>({});
 
   useEffect(() => {
     const loadSectionData = async () => {
@@ -78,11 +81,12 @@ export default function SectionScreen() {
   const handleDownload = async (audio: AudioFile) => {
     try {
       setDownloadingFiles((prev) => ({ ...prev, [audio.id]: true }));
+      setDownloadProgress((prev) => ({ ...prev, [audio.id]: 0 }));
       const fileUri = await downloadAudioFile(
         audio.url,
         `${audio.id}.mp3`,
         (progress) => {
-          console.log(`Download progress for ${audio.id}: ${progress * 100}%`);
+          setDownloadProgress((prev) => ({ ...prev, [audio.id]: progress }));
         },
       );
       setDownloadedFiles((prev) => ({ ...prev, [audio.id]: true }));
@@ -99,6 +103,7 @@ export default function SectionScreen() {
       setError('Failed to download audio. Please try again.');
     } finally {
       setDownloadingFiles((prev) => ({ ...prev, [audio.id]: false }));
+      setDownloadProgress((prev) => ({ ...prev, [audio.id]: 0 }));
     }
   };
 
@@ -198,7 +203,18 @@ export default function SectionScreen() {
                   }}
                 >
                   {downloadingFiles[audio.id] ? (
-                    <ActivityIndicator size="small" color={colors.white} />
+                    <View style={styles.downloadProgressContainer}>
+                      <Text style={styles.downloadProgressText}>
+                        {Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            Math.round(downloadProgress[audio.id] * 100),
+                          ),
+                        )}
+                        %
+                      </Text>
+                    </View>
                   ) : downloadedFiles[audio.id] ? (
                     <Play size={16} color={colors.white} />
                   ) : (
@@ -282,5 +298,16 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 10,
     borderRadius: 50,
+  },
+  downloadProgressContainer: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadProgressText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
