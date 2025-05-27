@@ -65,7 +65,7 @@ export const checkConnectivity = async (): Promise<boolean> => {
 // Cache audio file
 export const cacheAudioFile = async (
   url: string,
-  fileName: string
+  fileName: string,
 ): Promise<string> => {
   try {
     const cacheDir = `${FileSystem.cacheDirectory}audio/`;
@@ -117,6 +117,61 @@ export const preloadAudio = async (url: string): Promise<void> => {
     await sound.unloadAsync();
   } catch (error) {
     console.error('Error preloading audio:', error);
+  }
+};
+
+// Check if audio file is downloaded
+export const isAudioDownloaded = async (fileName: string): Promise<boolean> => {
+  try {
+    const cacheDir = `${FileSystem.cacheDirectory}audio/`;
+    const fileUri = `${cacheDir}${fileName}`;
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    return fileInfo.exists;
+  } catch (error) {
+    console.error('Error checking if audio is downloaded:', error);
+    return false;
+  }
+};
+
+// Download audio file
+export const downloadAudioFile = async (
+  url: string,
+  fileName: string,
+  onProgress?: (progress: number) => void,
+): Promise<string> => {
+  try {
+    const cacheDir = `${FileSystem.cacheDirectory}audio/`;
+    const fileUri = `${cacheDir}${fileName}`;
+
+    // Create cache directory if it doesn't exist
+    const dirInfo = await FileSystem.getInfoAsync(cacheDir);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
+    }
+
+    // Download the file with progress tracking
+    const downloadResult = await FileSystem.createDownloadResumable(
+      url,
+      fileUri,
+      {},
+      (downloadProgress) => {
+        const progress =
+          downloadProgress.totalBytesWritten /
+          downloadProgress.totalBytesExpectedToWrite;
+        if (onProgress) {
+          onProgress(progress);
+        }
+      },
+    ).downloadAsync();
+
+    if (downloadResult.status !== 200) {
+      throw new Error('Download failed');
+    }
+
+    return fileUri;
+  } catch (error) {
+    console.error('Error downloading audio file:', error);
+    throw error;
   }
 };
 

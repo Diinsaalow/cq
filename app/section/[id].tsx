@@ -6,18 +6,19 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
-import { Play, ArrowLeft } from 'lucide-react-native';
+import { Play, ArrowLeft, Download } from 'lucide-react-native';
 import getColors from '../../constants/Colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Section, fetchSectionById } from '../services/sectionService';
 import { fetchAudioFiles } from '../services/audioService';
 import { AudioFile } from '../../types';
-import OptimizedImage from '../../components/OptimizedImage';
 import ErrorState from '../../components/ErrorState';
 import SectionSkeleton from '../../components/SectionSkeleton';
+import { isAudioDownloaded, downloadAudioFile } from '../../utils/cache';
 
 export default function SectionScreen() {
   const params = useLocalSearchParams();
@@ -30,6 +31,12 @@ export default function SectionScreen() {
   const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloadingFiles, setDownloadingFiles] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [downloadedFiles, setDownloadedFiles] = useState<{
+    [key: string]: boolean;
+  }>({});
 
   useEffect(() => {
     const loadSectionData = async () => {
@@ -50,6 +57,13 @@ export default function SectionScreen() {
         // Fetch audio files for this section
         const files = await fetchAudioFiles(id);
         setAudioFiles(files);
+
+        // Check which files are already downloaded
+        const downloadedStatus: { [key: string]: boolean } = {};
+        for (const file of files) {
+          downloadedStatus[file.id] = await isAudioDownloaded(`${file.id}.mp3`);
+        }
+        setDownloadedFiles(downloadedStatus);
       } catch (err: any) {
         console.error('Error loading section data:', err);
         setError(err.message || 'Failed to load section data');
@@ -60,6 +74,40 @@ export default function SectionScreen() {
 
     loadSectionData();
   }, [id]);
+
+  const handleDownload = async (audio: AudioFile) => {
+    try {
+      setDownloadingFiles((prev) => ({ ...prev, [audio.id]: true }));
+      const fileUri = await downloadAudioFile(
+        audio.url,
+        `${audio.id}.mp3`,
+        (progress) => {
+          console.log(`Download progress for ${audio.id}: ${progress * 100}%`);
+        },
+      );
+      setDownloadedFiles((prev) => ({ ...prev, [audio.id]: true }));
+      // Navigate to player after successful download
+      router.push({
+        pathname: '/player',
+        params: {
+          sectionId: id,
+          audioIndex: audioFiles.findIndex((f) => f.id === audio.id),
+        },
+      });
+    } catch (err) {
+      console.error('Error downloading audio:', err);
+      setError('Failed to download audio. Please try again.');
+    } finally {
+      setDownloadingFiles((prev) => ({ ...prev, [audio.id]: false }));
+    }
+  };
+
+  const handlePlay = (audio: AudioFile, index: number) => {
+    router.push({
+      pathname: '/player',
+      params: { sectionId: id, audioIndex: index },
+    });
+  };
 
   if (loading) {
     return <SectionSkeleton />;
@@ -114,12 +162,13 @@ export default function SectionScreen() {
                   styles.audioItem,
                   { backgroundColor: colors.white, shadowColor: colors.shadow },
                 ]}
-                onPress={() =>
-                  router.push({
-                    pathname: '/player',
-                    params: { sectionId: id, audioIndex: index },
-                  })
-                }
+                onPress={() => {
+                  if (downloadedFiles[audio.id]) {
+                    handlePlay(audio, index);
+                  } else {
+                    handleDownload(audio);
+                  }
+                }}
               >
                 <View style={styles.audioInfo}>
                   <Text style={[styles.audioTitle, { color: colors.textDark }]}>
@@ -131,8 +180,30 @@ export default function SectionScreen() {
                     {formatTime(audio.duration)}
                   </Text>
                 </View>
-                <TouchableOpacity style={styles.playButton}>
-                  <Play size={16} color={colors.white} />
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    {
+                      backgroundColor: downloadedFiles[audio.id]
+                        ? colors.primary
+                        : colors.accent,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (downloadedFiles[audio.id]) {
+                      handlePlay(audio, index);
+                    } else {
+                      handleDownload(audio);
+                    }
+                  }}
+                >
+                  {downloadingFiles[audio.id] ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : downloadedFiles[audio.id] ? (
+                    <Play size={16} color={colors.white} />
+                  ) : (
+                    <Download size={16} color={colors.white} />
+                  )}
                 </TouchableOpacity>
               </TouchableOpacity>
             </Animated.View>
@@ -208,8 +279,7 @@ const styles = StyleSheet.create({
   audioDuration: {
     fontSize: 14,
   },
-  playButton: {
-    backgroundColor: '#4CAF50',
+  actionButton: {
     padding: 10,
     borderRadius: 50,
   },

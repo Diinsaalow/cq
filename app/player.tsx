@@ -19,7 +19,6 @@ import {
 import getColors from '../constants/Colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAudioStore } from '../contexts/audioStore';
-import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import OptimizedImage from '../components/OptimizedImage';
 import { cacheAudioFile, preloadAudio } from '../utils/cache';
@@ -81,7 +80,58 @@ export default function PlayerScreen() {
         setSeekPosition(newPosition);
       });
     },
-    [duration, setSeekPosition]
+    [duration, setSeekPosition],
+  );
+
+  // Handle tap on progress bar
+  const handleProgressBarTap = useCallback(
+    async (event: GestureResponderEvent) => {
+      if (!progressBarRef.current || duration <= 0) return;
+
+      progressBarRef.current.measure((x, y, width, height, pageX, pageY) => {
+        const touchX = event.nativeEvent.pageX;
+        const relativeX = Math.max(0, Math.min(width, touchX - pageX));
+        const seekPercentage = relativeX / width;
+        const newPosition = seekPercentage * duration;
+        setSeekPosition(newPosition);
+
+        // If audio is playing, pause it before seeking
+        if (isPlaying) {
+          pauseSound();
+        }
+
+        // Seek to the new position
+        seekTo(newPosition)
+          .then(() => {
+            // Resume playback if it was playing before
+            if (isPlaying) {
+              resumeSound();
+            }
+          })
+          .catch((err) => {
+            console.error('Error during seek:', err);
+            // If there's an error, try to recover the playback state
+            if (isPlaying) {
+              playSound(
+                audioFiles[currentAudioIndex],
+                sectionId,
+                currentAudioIndex,
+              );
+            }
+          });
+      });
+    },
+    [
+      duration,
+      setSeekPosition,
+      seekTo,
+      isPlaying,
+      pauseSound,
+      resumeSound,
+      audioFiles,
+      currentAudioIndex,
+      sectionId,
+    ],
   );
 
   // Pan responder for seek functionality
@@ -92,14 +142,61 @@ export default function PlayerScreen() {
       onPanResponderGrant: (event: GestureResponderEvent) => {
         setIsSeeking(true);
         handleSeek(event);
+        // Pause playback while seeking
+        if (isPlaying) {
+          pauseSound();
+        }
       },
       onPanResponderMove: handleSeek,
       onPanResponderRelease: async () => {
         const currentSeekPosition = useAudioStore.getState().seekPosition;
-        await seekTo(currentSeekPosition);
-        setIsSeeking(false);
+        const wasPlaying = isPlaying;
+
+        try {
+          await seekTo(currentSeekPosition);
+          // Resume playback if it was playing before
+          if (wasPlaying) {
+            await resumeSound();
+          }
+        } catch (err) {
+          console.error('Error during seek:', err);
+          // If there's an error, try to recover the playback state
+          if (wasPlaying) {
+            await playSound(
+              audioFiles[currentAudioIndex],
+              sectionId,
+              currentAudioIndex,
+            );
+          }
+        } finally {
+          setIsSeeking(false);
+        }
       },
-    })
+      onPanResponderTerminate: async () => {
+        const currentSeekPosition = useAudioStore.getState().seekPosition;
+        const wasPlaying = isPlaying;
+
+        try {
+          await seekTo(currentSeekPosition);
+          // Resume playback if it was playing before
+          if (wasPlaying) {
+            await resumeSound();
+          }
+        } catch (err) {
+          console.error('Error during seek:', err);
+          // If there's an error, try to recover the playback state
+          if (wasPlaying) {
+            await playSound(
+              audioFiles[currentAudioIndex],
+              sectionId,
+              currentAudioIndex,
+            );
+          }
+        } finally {
+          setIsSeeking(false);
+        }
+      },
+    }),
   ).current;
 
   // Load section and audio data
@@ -161,12 +258,12 @@ export default function PlayerScreen() {
             // Cache the audio file before playing
             const cachedUrl = await cacheAudioFile(
               audioToPlay.url,
-              `${audioToPlay.id}.mp3`
+              `${audioToPlay.id}.mp3`,
             );
             await playSound(
               { ...audioToPlay, url: cachedUrl },
               sectionId,
-              audioIndex
+              audioIndex,
             );
           }
         }
@@ -198,12 +295,12 @@ export default function PlayerScreen() {
       if (nextAudio) {
         const cachedUrl = await cacheAudioFile(
           nextAudio.url,
-          `${nextAudio.id}.mp3`
+          `${nextAudio.id}.mp3`,
         );
         await playSound(
           { ...nextAudio, url: cachedUrl },
           sectionId,
-          currentAudioIndex + 1
+          currentAudioIndex + 1,
         );
       }
     } catch (err) {
@@ -221,12 +318,12 @@ export default function PlayerScreen() {
       if (prevAudio) {
         const cachedUrl = await cacheAudioFile(
           prevAudio.url,
-          `${prevAudio.id}.mp3`
+          `${prevAudio.id}.mp3`,
         );
         await playSound(
           { ...prevAudio, url: cachedUrl },
           sectionId,
-          currentAudioIndex - 1
+          currentAudioIndex - 1,
         );
       }
     } catch (err) {
@@ -343,38 +440,44 @@ export default function PlayerScreen() {
 
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
-        <View
-          ref={progressBarRef}
-          {...panResponder.panHandlers}
-          style={[styles.progressBar, { backgroundColor: colors.lightGray }]}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={handleProgressBarTap}
+          style={styles.progressBarWrapper}
         >
           <View
-            style={[
-              styles.progress,
-              {
-                width: `${
-                  duration > 0
-                    ? ((isSeeking ? seekPosition : position) / duration) * 100
-                    : 0
-                }%`,
-                backgroundColor: colors.primary,
-              },
-            ]}
-          />
-          <View
-            style={[
-              styles.seekHandle,
-              {
-                left: `${
-                  duration > 0
-                    ? ((isSeeking ? seekPosition : position) / duration) * 100
-                    : 0
-                }%`,
-                backgroundColor: colors.primary,
-              },
-            ]}
-          />
-        </View>
+            ref={progressBarRef}
+            {...panResponder.panHandlers}
+            style={[styles.progressBar, { backgroundColor: colors.lightGray }]}
+          >
+            <View
+              style={[
+                styles.progress,
+                {
+                  width: `${
+                    duration > 0
+                      ? ((isSeeking ? seekPosition : position) / duration) * 100
+                      : 0
+                  }%`,
+                  backgroundColor: colors.primary,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.seekHandle,
+                {
+                  left: `${
+                    duration > 0
+                      ? ((isSeeking ? seekPosition : position) / duration) * 100
+                      : 0
+                  }%`,
+                  backgroundColor: colors.primary,
+                },
+              ]}
+            />
+          </View>
+        </TouchableOpacity>
         <View style={styles.timeContainer}>
           <Text style={[styles.timeText, { color: colors.textLight }]}>
             {formatTime(isSeeking ? seekPosition : position)}
@@ -485,10 +588,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
+  progressBarWrapper: {
+    width: '100%',
+    height: 40, // Increased touch target
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   progressBar: {
     height: 6,
     borderRadius: 10,
-    marginBottom: 8,
     position: 'relative',
   },
   progress: {
