@@ -26,6 +26,7 @@ import {
   fetchSectionsByCategoryId,
   addSection,
   deleteSection,
+  updateSection,
 } from '../../services/sectionService';
 import { database, config } from '../../../lib/appwrite';
 import { Query } from 'react-native-appwrite';
@@ -44,13 +45,21 @@ export default function CategoryDetailScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState('');
   const [newSectionImageUri, setNewSectionImageUri] = useState<string | null>(
-    null
+    null,
   );
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [deletingSectionId, setDeletingSectionId] = useState<string | null>(
-    null
+    null,
   );
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
+  const [editSectionTitle, setEditSectionTitle] = useState('');
+  const [editSectionImageUri, setEditSectionImageUri] = useState<string | null>(
+    null,
+  );
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     loadCategoryAndSections();
@@ -78,13 +87,13 @@ export default function CategoryDetailScreen() {
           const audioFilesResponse = await database.listDocuments(
             config.db,
             config.col.audioFiles,
-            [Query.equal('sectionId', [section.$id])]
+            [Query.equal('sectionId', [section.$id])],
           );
           return {
             ...section,
             count: audioFilesResponse.total,
           };
-        })
+        }),
       );
 
       setCategory(categoryData);
@@ -104,15 +113,23 @@ export default function CategoryDetailScreen() {
     setAddError('');
   };
 
-  const handlePickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setNewSectionImageUri(result.assets[0].uri);
+  const handlePickImage = async (isEdit: boolean = false) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        if (isEdit) {
+          setEditSectionImageUri(result.assets[0].uri);
+        } else {
+          setNewSectionImageUri(result.assets[0].uri);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
     }
   };
 
@@ -137,7 +154,35 @@ export default function CategoryDetailScreen() {
   };
 
   const handleEditSection = (sectionId: string) => {
-    Alert.alert('Edit Section', `Edit section ${sectionId}`);
+    const section = sections.find((s) => s.$id === sectionId);
+    if (section) {
+      setEditingSection(section);
+      setEditSectionTitle(section.title);
+      setEditSectionImageUri(section.imageUrl || null);
+      setEditError('');
+      setShowEditModal(true);
+    }
+  };
+
+  const handleSubmitEditSection = async () => {
+    if (!editingSection) return;
+
+    setEditError('');
+    setEditLoading(true);
+    try {
+      await updateSection({
+        sectionId: editingSection.$id,
+        title: editSectionTitle,
+        imageUri: editSectionImageUri,
+      });
+      setShowEditModal(false);
+      loadCategoryAndSections();
+    } catch (err: any) {
+      console.error('Failed to update section:', err);
+      setEditError(err?.message || 'Failed to update section');
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const handleDeleteSection = (sectionId: string) => {
@@ -159,14 +204,14 @@ export default function CategoryDetailScreen() {
               console.error('Error deleting section:', err);
               Alert.alert(
                 'Error',
-                'Failed to delete section. Please try again.'
+                'Failed to delete section. Please try again.',
               );
             } finally {
               setDeletingSectionId(null);
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -253,7 +298,7 @@ export default function CategoryDetailScreen() {
                   <Text style={[styles.metaValue, { color: colors.primary }]}>
                     {sections.reduce(
                       (total, section) => total + (section.count || 0),
-                      0
+                      0,
                     )}
                   </Text>
                   <Text style={[styles.metaLabel, { color: colors.textLight }]}>
@@ -410,7 +455,7 @@ export default function CategoryDetailScreen() {
                 styles.imagePickerButton,
                 { borderColor: colors.primary },
               ]}
-              onPress={handlePickImage}
+              onPress={() => handlePickImage(false)}
             >
               <Text style={{ color: colors.primary, fontWeight: '600' }}>
                 {newSectionImageUri ? 'Change Image' : 'Pick Image'}
@@ -465,6 +510,87 @@ export default function CategoryDetailScreen() {
                 style={[styles.modalButton, { backgroundColor: colors.accent }]}
                 onPress={() => setShowAddModal(false)}
                 disabled={addLoading}
+              >
+                <Text style={{ color: colors.white }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Section Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View
+            style={[styles.modalContainer, { backgroundColor: colors.white }]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.textDark }]}>
+              Edit Section
+            </Text>
+            <Text style={[styles.modalLabel, { color: colors.textLight }]}>
+              Title *
+            </Text>
+            <TextInput
+              style={[
+                styles.modalInput,
+                { color: colors.textDark, borderColor: colors.shadow },
+              ]}
+              placeholder="Section title"
+              placeholderTextColor={colors.textLight}
+              value={editSectionTitle}
+              onChangeText={setEditSectionTitle}
+              autoFocus
+            />
+            <Text style={[styles.modalLabel, { color: colors.textLight }]}>
+              Image
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.imagePickerButton,
+                { borderColor: colors.primary },
+              ]}
+              onPress={() => handlePickImage(true)}
+            >
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                {editSectionImageUri ? 'Change Image' : 'Pick Image'}
+              </Text>
+            </TouchableOpacity>
+            {editSectionImageUri && (
+              <View style={styles.imagePreviewContainer}>
+                <Image
+                  source={{ uri: editSectionImageUri }}
+                  style={styles.imagePreview}
+                />
+              </View>
+            )}
+            {editError ? (
+              <Text style={styles.modalError}>{editError}</Text>
+            ) : null}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleSubmitEditSection}
+                disabled={editLoading}
+              >
+                <Text style={{ color: colors.white, fontWeight: '600' }}>
+                  {editLoading ? 'Saving...' : 'Save Changes'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.accent }]}
+                onPress={() => setShowEditModal(false)}
+                disabled={editLoading}
               >
                 <Text style={{ color: colors.white }}>Cancel</Text>
               </TouchableOpacity>

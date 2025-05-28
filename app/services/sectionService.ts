@@ -11,13 +11,13 @@ export interface Section extends Models.Document {
 }
 
 export const fetchSectionsByCategoryId = async (
-  categoryId: string
+  categoryId: string,
 ): Promise<Section[]> => {
   try {
     const response = await database.listDocuments(
       config.db,
       config.col.sections,
-      [Query.equal('categoryId', categoryId)]
+      [Query.equal('categoryId', categoryId)],
     );
     return response.documents as Section[];
   } catch (err) {
@@ -27,7 +27,7 @@ export const fetchSectionsByCategoryId = async (
 };
 
 export const fetchSectionById = async (
-  sectionId: string | undefined
+  sectionId: string | undefined,
 ): Promise<Section> => {
   try {
     // Validate sectionId
@@ -39,7 +39,7 @@ export const fetchSectionById = async (
     const response = await database.getDocument(
       config.db,
       config.col.sections,
-      sectionId
+      sectionId,
     );
     return response as Section;
   } catch (err) {
@@ -76,7 +76,7 @@ export const addSection = async ({
         title: title.trim(),
         categoryId,
         imageUrl,
-      }
+      },
     );
 
     return section as Section;
@@ -92,15 +92,15 @@ export const deleteSection = async (sectionId: string): Promise<void> => {
     const section = (await database.getDocument(
       config.db,
       config.col.sections,
-      sectionId
+      sectionId,
     )) as Section;
 
     // Delete associated audio files if any
     if (section.audioFiles && section.audioFiles.length > 0) {
       await Promise.all(
         section.audioFiles.map((fileId: string) =>
-          database.deleteDocument(config.db, config.col.audioFiles, fileId)
-        )
+          database.deleteDocument(config.db, config.col.audioFiles, fileId),
+        ),
       );
     }
 
@@ -109,5 +109,42 @@ export const deleteSection = async (sectionId: string): Promise<void> => {
   } catch (err) {
     console.error('Error deleting section:', err);
     throw new Error('Failed to delete section');
+  }
+};
+
+export const updateSection = async ({
+  sectionId,
+  title,
+  imageUri,
+}: {
+  sectionId: string;
+  title: string;
+  imageUri?: string | null;
+}): Promise<Section> => {
+  if (!title.trim()) {
+    throw new Error('Section title is required');
+  }
+
+  try {
+    let imageUrl = null;
+    if (imageUri) {
+      const fileName = imageUri.split('/').pop() || 'image.jpg';
+      imageUrl = await uploadImageFile(imageUri, fileName);
+    }
+
+    const section = await database.updateDocument(
+      config.db,
+      config.col.sections,
+      sectionId,
+      {
+        title: title.trim(),
+        ...(imageUrl && { imageUrl }),
+      },
+    );
+
+    return section as Section;
+  } catch (err) {
+    console.error('Error updating section:', err);
+    throw new Error('Failed to update section');
   }
 };
