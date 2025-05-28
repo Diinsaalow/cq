@@ -12,7 +12,7 @@ export const fetchCategories = async (): Promise<Category[]> => {
     const response = await database.listDocuments(
       config.db,
       config.col.categories,
-      [Query.orderDesc('$createdAt')]
+      [Query.orderDesc('$createdAt')],
     );
 
     console.log('Categories response:', response);
@@ -24,18 +24,18 @@ export const fetchCategories = async (): Promise<Category[]> => {
         const sectionsResponse = await database.listDocuments(
           config.db,
           config.col.sections,
-          [Query.equal('categoryId', category.$id)]
+          [Query.equal('categoryId', category.$id)],
         );
         console.log(
           'Sections response for category:',
           category.$id,
-          sectionsResponse
+          sectionsResponse,
         );
         return {
           ...category,
           sectionsCount: sectionsResponse.total,
         };
-      })
+      }),
     );
 
     console.log('Final categories with sections:', categoriesWithSections);
@@ -58,7 +58,7 @@ export const addCategory = async (title: string): Promise<void> => {
       'unique()',
       {
         title: title.trim(),
-      }
+      },
     );
   } catch (err) {
     console.error('Error adding category:', err);
@@ -72,7 +72,7 @@ export const deleteCategory = async (categoryId: string): Promise<void> => {
     const sectionsResponse = await database.listDocuments(
       config.db,
       config.col.sections,
-      [Query.equal('categoryId', categoryId)]
+      [Query.equal('categoryId', categoryId)],
     );
 
     // Delete all sections and their associated files
@@ -81,15 +81,15 @@ export const deleteCategory = async (categoryId: string): Promise<void> => {
       if (section.audioFiles && section.audioFiles.length > 0) {
         await Promise.all(
           section.audioFiles.map((fileId: string) =>
-            database.deleteDocument(config.db, config.col.audioFiles, fileId)
-          )
+            database.deleteDocument(config.db, config.col.audioFiles, fileId),
+          ),
         );
       }
       // Delete the section
       return database.deleteDocument(
         config.db,
         config.col.sections,
-        section.$id
+        section.$id,
       );
     });
 
@@ -109,11 +109,34 @@ export const fetchCategoryById = async (id: string): Promise<Category> => {
     const category = await database.getDocument(
       config.db,
       config.col.categories,
-      id
+      id,
     );
     return category as unknown as Category;
   } catch (err) {
     console.error('Error fetching category:', err);
     throw new Error('Failed to load category');
+  }
+};
+
+export const updateCategory = async (
+  categoryId: string,
+  title: string,
+): Promise<void> => {
+  if (!title.trim()) {
+    throw new Error('Category title is required');
+  }
+
+  try {
+    await database.updateDocument(
+      config.db,
+      config.col.categories,
+      categoryId,
+      {
+        title: title.trim(),
+      },
+    );
+  } catch (err) {
+    console.error('Error updating category:', err);
+    throw new Error('Failed to update category');
   }
 };

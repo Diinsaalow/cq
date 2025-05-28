@@ -32,6 +32,7 @@ import {
   fetchCategories,
   addCategory,
   deleteCategory,
+  updateCategory,
 } from '../services/categoryService';
 
 export default function ContentManagementScreen() {
@@ -48,8 +49,15 @@ export default function ContentManagementScreen() {
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(
-    null
+    null,
   );
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
+    null,
+  );
+  const [editingCategoryTitle, setEditingCategoryTitle] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     loadCategories();
@@ -90,7 +98,7 @@ export default function ContentManagementScreen() {
     } catch (err) {
       console.error('Error adding category:', err);
       setAddError(
-        err instanceof Error ? err.message : 'Failed to add category'
+        err instanceof Error ? err.message : 'Failed to add category',
       );
     } finally {
       setAddLoading(false);
@@ -98,7 +106,32 @@ export default function ContentManagementScreen() {
   };
 
   const handleEditCategory = (categoryId: string) => {
-    Alert.alert('Edit Category', `Edit category ${categoryId}`);
+    const category = categories.find((c) => c.$id === categoryId);
+    if (category) {
+      setEditingCategoryId(categoryId);
+      setEditingCategoryTitle(category.title);
+      setEditError('');
+      setShowEditModal(true);
+    }
+  };
+
+  const handleSubmitEditCategory = async () => {
+    if (!editingCategoryId) return;
+
+    setEditError('');
+    setEditLoading(true);
+    try {
+      await updateCategory(editingCategoryId, editingCategoryTitle);
+      setShowEditModal(false);
+      loadCategories();
+    } catch (err) {
+      console.error('Error updating category:', err);
+      setEditError(
+        err instanceof Error ? err.message : 'Failed to update category',
+      );
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -117,20 +150,20 @@ export default function ContentManagementScreen() {
               await loadCategories();
               Alert.alert(
                 'Success',
-                'Category and all its contents have been deleted successfully.'
+                'Category and all its contents have been deleted successfully.',
               );
             } catch (err) {
               console.error('Error deleting category:', err);
               Alert.alert(
                 'Error',
-                'Failed to delete category. Please try again.'
+                'Failed to delete category. Please try again.',
               );
             } finally {
               setDeletingCategoryId(null);
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -381,6 +414,65 @@ export default function ContentManagementScreen() {
                 style={[styles.modalButton, { backgroundColor: colors.accent }]}
                 onPress={() => setShowAddModal(false)}
                 disabled={addLoading}
+              >
+                <Text style={{ color: colors.white }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Category Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View
+            style={[styles.modalContainer, { backgroundColor: colors.white }]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.textDark }]}>
+              Edit Category
+            </Text>
+            <Text style={[styles.modalLabel, { color: colors.textLight }]}>
+              Title *
+            </Text>
+            <TextInput
+              style={[
+                styles.modalInput,
+                { color: colors.textDark, borderColor: colors.shadow },
+              ]}
+              placeholder="Category title"
+              placeholderTextColor={colors.textLight}
+              value={editingCategoryTitle}
+              onChangeText={setEditingCategoryTitle}
+              autoFocus
+            />
+            {editError ? (
+              <Text style={styles.modalError}>{editError}</Text>
+            ) : null}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleSubmitEditCategory}
+                disabled={editLoading}
+              >
+                <Text style={{ color: colors.white, fontWeight: '600' }}>
+                  {editLoading ? 'Updating...' : 'Update Category'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.accent }]}
+                onPress={() => setShowEditModal(false)}
+                disabled={editLoading}
               >
                 <Text style={{ color: colors.white }}>Cancel</Text>
               </TouchableOpacity>
