@@ -726,6 +726,7 @@ const styles = StyleSheet.create({
   sectionsList: {
     marginTop: 16,
     gap: 16,
+    paddingBottom: 80,
   },
   sectionItem: {
     backgroundColor: '#fff',

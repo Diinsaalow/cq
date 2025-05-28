@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import getColors from '../../constants/Colors';
@@ -20,11 +21,47 @@ import {
   FileAudio,
   FileVideo,
 } from 'lucide-react-native';
+import { fetchAdminStats, AdminStats } from '../services/adminService';
+import StatsSkeleton from '../../components/StatsSkeleton';
 
 export default function AdminScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const colors = getColors(theme);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const adminStats = await fetchAdminStats();
+      setStats(adminStats);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load statistics');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const adminStats = await fetchAdminStats();
+      setStats(adminStats);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to refresh statistics');
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const adminOptions = [
     {
@@ -83,32 +120,59 @@ export default function AdminScreen() {
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+            title="Pull to refresh"
+            titleColor={colors.textLight}
+            progressViewOffset={20}
+          />
+        }
       >
         <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: colors.white }]}>
-            <Text style={[styles.statNumber, { color: colors.primary }]}>
-              2
+          {loading || refreshing ? (
+            <StatsSkeleton />
+          ) : error ? (
+            <Text style={[styles.errorText, { color: colors.error }]}>
+              {error}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textLight }]}>
-              Categories
-            </Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.white }]}>
-            <Text style={[styles.statNumber, { color: colors.primary }]}>
-              8
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textLight }]}>
-              Sections
-            </Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.white }]}>
-            <Text style={[styles.statNumber, { color: colors.primary }]}>
-              24
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textLight }]}>
-              Audio Files
-            </Text>
-          </View>
+          ) : (
+            <>
+              <View
+                style={[styles.statCard, { backgroundColor: colors.white }]}
+              >
+                <Text style={[styles.statNumber, { color: colors.primary }]}>
+                  {stats?.categoriesCount || 0}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textLight }]}>
+                  Categories
+                </Text>
+              </View>
+              <View
+                style={[styles.statCard, { backgroundColor: colors.white }]}
+              >
+                <Text style={[styles.statNumber, { color: colors.primary }]}>
+                  {stats?.sectionsCount || 0}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textLight }]}>
+                  Sections
+                </Text>
+              </View>
+              <View
+                style={[styles.statCard, { backgroundColor: colors.white }]}
+              >
+                <Text style={[styles.statNumber, { color: colors.primary }]}>
+                  {stats?.audioFilesCount || 0}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textLight }]}>
+                  Audio Files
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.actionsSection}>
@@ -378,5 +442,11 @@ const styles = StyleSheet.create({
   },
   activityTime: {
     fontSize: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
