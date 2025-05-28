@@ -651,34 +651,38 @@ const styles = StyleSheet.create({
   },
   progressBarWrapper: {
     width: '100%',
-    height: 40, // Increased touch target
+    height: 48, // Increased touch target height
     justifyContent: 'center',
     marginBottom: 8,
   },
   progressBar: {
-    height: 6,
-    borderRadius: 10,
+    height: 6, // Slightly thicker bar
+    borderRadius: 3,
     position: 'relative',
+    backgroundColor: 'rgba(0,0,0,0.1)', // Subtle background
   },
   progress: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3,
     position: 'absolute',
     left: 0,
     top: 0,
   },
   seekHandle: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 24, // Larger handle
+    height: 24, // Larger handle
+    borderRadius: 12,
     position: 'absolute',
-    top: -5,
-    transform: [{ translateX: -8 }],
-    elevation: 3,
+    top: -9,
+    transform: [{ translateX: -12 }],
+    backgroundColor: '#007AFF', // Using a default blue color
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    borderWidth: 3,
+    borderColor: '#FFFFFF', // White border
   },
   timeContainer: {
     flexDirection: 'row',
