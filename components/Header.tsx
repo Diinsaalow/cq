@@ -19,7 +19,7 @@ export default function Header({ title }: HeaderProps) {
       style={[
         styles.container,
         {
-          backgroundColor: colors.white,
+          backgroundColor: colors.primary,
           shadowColor: colors.shadow,
           paddingTop: insets.top,
         },
@@ -27,11 +27,11 @@ export default function Header({ title }: HeaderProps) {
     >
       <View style={styles.content}>
         {/* <Music2 size={32} color={colors.primary} style={styles.icon} /> */}
-        <Text style={[styles.title, { color: colors.textDark }]}>{title}</Text>
+        <Text style={[styles.title, { color: colors.white }]}>{title}</Text>
       </View>
-      <View
+      {/* <View
         style={[styles.decorativeBar, { backgroundColor: colors.primary }]}
-      />
+      /> */}
     </View>
   );
 }

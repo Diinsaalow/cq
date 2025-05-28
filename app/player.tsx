@@ -86,40 +86,61 @@ export default function PlayerScreen() {
   // Handle tap on progress bar
   const handleProgressBarTap = useCallback(
     async (event: GestureResponderEvent) => {
-      if (!progressBarRef.current || duration <= 0) return;
+      try {
+        if (!progressBarRef.current || duration <= 0) return;
 
-      progressBarRef.current.measure((x, y, width, height, pageX, pageY) => {
+        // Get the touch coordinates
         const touchX = event.nativeEvent.pageX;
+
+        // Use a promise to handle the measure callback
+        const measurePromise = new Promise<{ width: number; pageX: number }>(
+          (resolve, reject) => {
+            progressBarRef.current?.measure(
+              (x, y, width, height, pageX, pageY) => {
+                if (width === undefined || pageX === undefined) {
+                  reject(new Error('Failed to measure progress bar'));
+                  return;
+                }
+                resolve({ width, pageX });
+              },
+            );
+          },
+        );
+
+        const { width, pageX } = await measurePromise;
         const relativeX = Math.max(0, Math.min(width, touchX - pageX));
         const seekPercentage = relativeX / width;
         const newPosition = seekPercentage * duration;
+
         setSeekPosition(newPosition);
 
         // If audio is playing, pause it before seeking
         if (isPlaying) {
-          pauseSound();
+          await pauseSound();
         }
 
         // Seek to the new position
-        seekTo(newPosition)
-          .then(() => {
-            // Resume playback if it was playing before
-            if (isPlaying) {
-              resumeSound();
-            }
-          })
-          .catch((err) => {
-            console.error('Error during seek:', err);
-            // If there's an error, try to recover the playback state
-            if (isPlaying) {
-              playSound(
-                audioFiles[currentAudioIndex],
-                sectionId,
-                currentAudioIndex,
-              );
-            }
-          });
-      });
+        await seekTo(newPosition);
+
+        // Resume playback if it was playing before
+        if (isPlaying) {
+          await resumeSound();
+        }
+      } catch (err) {
+        console.error('Error during seek:', err);
+        // If there's an error, try to recover the playback state
+        if (isPlaying) {
+          try {
+            await playSound(
+              audioFiles[currentAudioIndex],
+              sectionId,
+              currentAudioIndex,
+            );
+          } catch (playError) {
+            console.error('Error recovering playback:', playError);
+          }
+        }
+      }
     },
     [
       duration,
